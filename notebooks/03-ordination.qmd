@@ -92,6 +92,54 @@ Suggested request: *Make the same ordination three ways, side by side:
 `"euclidean"`. Under them, add a scree plot for each showing the share of
 variation held by the first eight axes.*
 
+```{r step-2}
+# The same species table, three distance choices. Each row of the pipeline is
+# one knob from the slides: transform -> distance -> ordination.
+ord_bray    <- ps_species |> tax_transform("identity") |> dist_calc("bray")    |> ord_calc("PCoA")
+ord_jaccard <- ps_species |> tax_transform("binary")   |> dist_calc("jaccard") |> ord_calc("PCoA")
+ord_clr     <- ps_species |> tax_transform("clr", zero_replace = "halfmin") |> dist_calc("euclidean") |> ord_calc("PCoA")
+
+# Helper: one PCoA plot, with the share of variation on each axis title.
+# The eigenvalues of the ordination say how much variation each axis holds.
+plot_ord <- function(ord, name) {
+  eig <- attr(ord, "ord")$CA$eig          # variation per axis
+  sh  <- round(100 * eig / sum(eig), 1)   # as percent of the total
+  ord_plot(ord, axes = 1:2, color = "community") +
+    labs(
+      title = name,
+      x = sprintf("Axis 1 (%s%% of variation)", sh[1]),
+      y = sprintf("Axis 2 (%s%% of variation)", sh[2])
+    )
+}
+
+# Helper: a scree plot, the share of variation held by the first 8 axes.
+scree_shares <- function(ord, name) {
+  eig <- attr(ord, "ord")$CA$eig[1:8]
+  tibble(distance = name, axis = seq_along(eig), share = eig / sum(eig))
+}
+
+scree <- bind_rows(
+  scree_shares(ord_bray, "Bray-Curtis"),
+  scree_shares(ord_jaccard, "Jaccard"),
+  scree_shares(ord_clr, "CLR + Euclidean"),
+  .id = NULL
+)
+
+patchwork::wrap_plots(
+  plot_ord(ord_bray, "Bray-Curtis"),
+  plot_ord(ord_jaccard, "Jaccard"),
+  plot_ord(ord_clr, "CLR + Euclidean"),
+  ncol = 3
+) / ggplot(scree, aes(axis, share)) +
+  geom_col(fill = "grey40") +
+  facet_wrap(~ distance) +
+  labs(
+    title = "Scree: share of variation held by the first 8 axes",
+    x = "Axis", y = "Share of variation"
+  ) +
+  theme_bw()
+```
+
 *The distance I would publish, and why:*
 
 ### Step 3: one plot, many colourings

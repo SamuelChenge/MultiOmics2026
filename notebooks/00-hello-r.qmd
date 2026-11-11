@@ -12,11 +12,11 @@ for. For now, just press play and watch what happens.
 library(tidyverse)
 library(palmerpenguins)
 
-ggplot(penguins, aes(x = flipper_length_mm, y = body_mass_g, color = species)) +
+ggplot(penguins, aes(x = bill_length_mm, y = body_mass_g, color = species)) +
   geom_point() +
   labs(
-    title = "Penguin flipper length vs. body mass",
-    x = "Flipper length (mm)",
+    title = "Penguin bill length vs. body mass",
+    x = "Bill length (mm)",
     y = "Body mass (g)",
     color = "Species"
   )

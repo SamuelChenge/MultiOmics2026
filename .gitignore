@@ -10,3 +10,4 @@
 # Rendered notebook output. Participants render locally; the template ships
 # only the .qmd sources.
 *.html
+Rplots.pdf

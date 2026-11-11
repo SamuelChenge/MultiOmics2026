@@ -36,23 +36,23 @@ Answer before running anything below.
 
 **1. Of the 220 species, how many will you see in a single sample?**
 
-- *Your answer:*
+- *Your answer:* 200
 
 **2. Of the 14,226 genes, how many will you see in a single sample?**
 
-- *Your answer:*
+- *Your answer:* 14000
 
 **3. Which table has a larger share of zero cells?**
 
-- *Your answer:*
+- *Your answer:* species
 
 **4. One sample has 438 bacterial reads against a median of about 28,700. What will be wrong with it?**
 
-- *Your answer:*
+- *Your answer: too many zeros
 
 **5. A typical sample behaves like how many equally common species? Like how many equally expressed genes?**
 
-- *Your answer:*
+- *Your answer:* median
 
 ## Part 2 — Ask, look, decide
 
@@ -63,6 +63,50 @@ for every sample in each count table, species and genes, and a `table` column
 saying which. Columns: library size, number of features detected, fraction of
 zeros, the share held by the largest feature, Shannon diversity, and the
 effective number of features.*
+
+```{r step-1}
+# One row per sample per table, with the per-sample anatomy numbers.
+# Both count tables are features in rows and samples in columns, so we
+# work down the columns of each matrix.
+
+sample_anatomy <- function(counts, table_name) {
+  m <- as.matrix(counts[, -1])           # drop the feature-ID column
+  lib       <- colSums(m)                # total reads per sample
+  detected  <- colSums(m > 0)            # features with at least one read
+  zeros     <- colMeans(m == 0)          # fraction of zeros
+  top_share <- apply(m, 2, max) / lib    # largest feature's share
+  shannon <- apply(m, 2, function(x) {   # Shannon diversity (natural log)
+    p <- x[x > 0] / sum(x)
+    -sum(p * log(p))
+  })
+  tibble(
+    table              = table_name,
+    sample             = names(lib),
+    library_size       = lib,
+    features_detected  = detected,
+    frac_zeros         = zeros,
+    top_feature_share  = top_share,
+    shannon            = shannon,
+    effective_features = exp(shannon)   # equally common features that
+  )                                     # would give the same Shannon
+}
+
+sample_summary <- bind_rows(
+  sample_anatomy(species, "species"),
+  sample_anatomy(genes, "genes")
+)
+
+sample_summary
+```
+
+```{r step-1-check}
+# Quick checks: 942 rows total, and the P001_week_18 species row so you can
+# compare it against `sum(species$P001_week_18)` in the console.
+nrow(sample_summary)
+
+sample_summary |>
+  filter(table == "species", sample == "P001_week_18")
+```
 
 - Does it have 942 rows, 471 for each table?
   - *Your answer:*
