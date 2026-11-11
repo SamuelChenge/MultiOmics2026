@@ -10,4 +10,8 @@
 # Rendered notebook output. Participants render locally; the template ships
 # only the .qmd sources.
 *.html
+
+# Exception: the QC report should be shared as-is (requested).
+!analysis/qc-genes-by-community.html
+!analysis/qc-genes-by-community_files/
 Rplots.pdf
