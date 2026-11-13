@@ -1,0 +1,774 @@
+% Options for packages loaded elsewhere
+% Options for packages loaded elsewhere
+\PassOptionsToPackage{unicode}{hyperref}
+\PassOptionsToPackage{hyphens}{url}
+\PassOptionsToPackage{dvipsnames,svgnames,x11names}{xcolor}
+%
+\documentclass[
+  letterpaper,
+  DIV=11,
+  numbers=noendperiod]{scrartcl}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb}
+\setcounter{secnumdepth}{-\maxdimen} % remove section numbering
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T1]{fontenc}
+  \usepackage[utf8]{inputenc}
+  \usepackage{textcomp} % provide euro and other symbols
+\else % if luatex or xetex
+  \usepackage{unicode-math} % this also loads fontspec
+  \defaultfontfeatures{Scale=MatchLowercase}
+  \defaultfontfeatures[\rmfamily]{Ligatures=TeX,Scale=1}
+\fi
+\usepackage{lmodern}
+\ifPDFTeX\else
+  % xetex/luatex font selection
+\fi
+% Use upquote if available, for straight quotes in verbatim environments
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\IfFileExists{microtype.sty}{% use microtype if available
+  \usepackage[]{microtype}
+  \UseMicrotypeSet[protrusion]{basicmath} % disable protrusion for tt fonts
+}{}
+\makeatletter
+\@ifundefined{KOMAClassName}{% if non-KOMA class
+  \IfFileExists{parskip.sty}{%
+    \usepackage{parskip}
+  }{% else
+    \setlength{\parindent}{0pt}
+    \setlength{\parskip}{6pt plus 2pt minus 1pt}}
+}{% if KOMA class
+  \KOMAoptions{parskip=half}}
+\makeatother
+% Make \paragraph and \subparagraph free-standing
+\makeatletter
+\ifx\paragraph\undefined\else
+  \let\oldparagraph\paragraph
+  \renewcommand{\paragraph}{
+    \@ifstar
+      \xxxParagraphStar
+      \xxxParagraphNoStar
+  }
+  \newcommand{\xxxParagraphStar}[1]{\oldparagraph*{#1}\mbox{}}
+  \newcommand{\xxxParagraphNoStar}[1]{\oldparagraph{#1}\mbox{}}
+\fi
+\ifx\subparagraph\undefined\else
+  \let\oldsubparagraph\subparagraph
+  \renewcommand{\subparagraph}{
+    \@ifstar
+      \xxxSubParagraphStar
+      \xxxSubParagraphNoStar
+  }
+  \newcommand{\xxxSubParagraphStar}[1]{\oldsubparagraph*{#1}\mbox{}}
+  \newcommand{\xxxSubParagraphNoStar}[1]{\oldsubparagraph{#1}\mbox{}}
+\fi
+\makeatother
+
+\usepackage{color}
+\usepackage{fancyvrb}
+\newcommand{\VerbBar}{|}
+\newcommand{\VERB}{\Verb[commandchars=\\\{\}]}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\}}
+% Add ',fontsize=\small' for more characters per line
+\usepackage{framed}
+\definecolor{shadecolor}{RGB}{241,243,245}
+\newenvironment{Shaded}{\begin{snugshade}}{\end{snugshade}}
+\newcommand{\AlertTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\AnnotationTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\AttributeTok}[1]{\textcolor[rgb]{0.40,0.45,0.13}{#1}}
+\newcommand{\BaseNTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\BuiltInTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\CharTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\CommentTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\CommentVarTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
+\newcommand{\ConstantTok}[1]{\textcolor[rgb]{0.56,0.35,0.01}{#1}}
+\newcommand{\ControlFlowTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{\textbf{#1}}}
+\newcommand{\DataTypeTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\DecValTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\DocumentationTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
+\newcommand{\ErrorTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\ExtensionTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\FloatTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\FunctionTok}[1]{\textcolor[rgb]{0.28,0.35,0.67}{#1}}
+\newcommand{\ImportTok}[1]{\textcolor[rgb]{0.00,0.46,0.62}{#1}}
+\newcommand{\InformationTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\KeywordTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{\textbf{#1}}}
+\newcommand{\NormalTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\OperatorTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\OtherTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\PreprocessorTok}[1]{\textcolor[rgb]{0.68,0.00,0.00}{#1}}
+\newcommand{\RegionMarkerTok}[1]{\textcolor[rgb]{0.00,0.23,0.31}{#1}}
+\newcommand{\SpecialCharTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{#1}}
+\newcommand{\SpecialStringTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\StringTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\VariableTok}[1]{\textcolor[rgb]{0.07,0.07,0.07}{#1}}
+\newcommand{\VerbatimStringTok}[1]{\textcolor[rgb]{0.13,0.47,0.30}{#1}}
+\newcommand{\WarningTok}[1]{\textcolor[rgb]{0.37,0.37,0.37}{\textit{#1}}}
+
+\usepackage{longtable,booktabs,array}
+\newcounter{none} % for unnumbered tables
+\usepackage{calc} % for calculating minipage widths
+% Correct order of tables after \paragraph or \subparagraph
+\usepackage{etoolbox}
+\makeatletter
+\patchcmd\longtable{\par}{\if@noskipsec\mbox{}\fi\par}{}{}
+\makeatother
+% Allow footnotes in longtable head/foot
+\IfFileExists{footnotehyper.sty}{\usepackage{footnotehyper}}{\usepackage{footnote}}
+\makesavenoteenv{longtable}
+\usepackage{graphicx}
+\makeatletter
+\newsavebox\pandoc@box
+\newcommand*\pandocbounded[1]{% scales image to fit in text height/width
+  \sbox\pandoc@box{#1}%
+  \Gscale@div\@tempa{\textheight}{\dimexpr\ht\pandoc@box+\dp\pandoc@box\relax}%
+  \Gscale@div\@tempb{\linewidth}{\wd\pandoc@box}%
+  \ifdim\@tempb\p@<\@tempa\p@\let\@tempa\@tempb\fi% select the smaller of both
+  \ifdim\@tempa\p@<\p@\scalebox{\@tempa}{\usebox\pandoc@box}%
+  \else\usebox{\pandoc@box}%
+  \fi%
+}
+% Set default figure placement to htbp
+\def\fps@figure{htbp}
+\makeatother
+
+
+
+
+
+\setlength{\emergencystretch}{3em} % prevent overfull lines
+
+\providecommand{\tightlist}{%
+  \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+
+
+ 
+
+
+\KOMAoption{captions}{tableheading}
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\AtBeginDocument{%
+\ifdefined\contentsname
+  \renewcommand*\contentsname{Table of contents}
+\else
+  \newcommand\contentsname{Table of contents}
+\fi
+\ifdefined\listfigurename
+  \renewcommand*\listfigurename{List of Figures}
+\else
+  \newcommand\listfigurename{List of Figures}
+\fi
+\ifdefined\listtablename
+  \renewcommand*\listtablename{List of Tables}
+\else
+  \newcommand\listtablename{List of Tables}
+\fi
+\ifdefined\figurename
+  \renewcommand*\figurename{Figure}
+\else
+  \newcommand\figurename{Figure}
+\fi
+\ifdefined\tablename
+  \renewcommand*\tablename{Table}
+\else
+  \newcommand\tablename{Table}
+\fi
+}
+\@ifpackageloaded{float}{}{\usepackage{float}}
+\floatstyle{ruled}
+\@ifundefined{c@chapter}{\newfloat{codelisting}{h}{lop}}{\newfloat{codelisting}{h}{lop}[chapter]}
+\floatname{codelisting}{Listing}
+\newcommand*\listoflistings{\listof{codelisting}{List of Listings}}
+\makeatother
+\makeatletter
+\makeatother
+\makeatletter
+\@ifpackageloaded{caption}{}{\usepackage{caption}}
+\@ifpackageloaded{subcaption}{}{\usepackage{subcaption}}
+\makeatother
+\usepackage{bookmark}
+\IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
+\urlstyle{same}
+% fallback for those not using the hyperref driver hyperxmp:
+\makeatletter
+\@ifundefined{xmpquote}{\newcommand{\xmpquote}[1]{#1}}{}
+\makeatother
+\hypersetup{
+  pdftitle={Quality control --- Study B (contraception)},
+  colorlinks=true,
+  linkcolor={blue},
+  filecolor={Maroon},
+  citecolor={Blue},
+  urlcolor={Blue},
+  pdfcreator={LaTeX via pandoc}}
+
+
+\title{Quality control --- Study B (contraception)}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+
+\begin{quote}
+\textbf{What this document is.} Before we test anything, we look hard at
+the raw data and ask: are the three files consistent with each other,
+are there samples that behave strangely, and is anything broken badly
+enough that we should drop or fix it now? Every number below was
+computed from the data --- at the bottom of each section there is a
+\emph{sanity check} telling you how to spot-check it yourself.
+\end{quote}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{library}\NormalTok{(tidyverse)}
+\FunctionTok{library}\NormalTok{(patchwork)   }\CommentTok{\# puts several ggplots in one row}
+
+\CommentTok{\# Workshop helper: read\_counts() loads the three count tables plus metadata}
+\CommentTok{\# and cytokines, and stops with an error if the sample ids do not line up.}
+\FunctionTok{source}\NormalTok{(here}\SpecialCharTok{::}\FunctionTok{here}\NormalTok{(}\StringTok{"R/count\_tables.R"}\NormalTok{))}
+
+\NormalTok{d  }\OtherTok{\textless{}{-}} \FunctionTok{read\_counts}\NormalTok{(}\StringTok{"group\_b"}\NormalTok{)      }\CommentTok{\# the contraception study}
+\NormalTok{sp }\OtherTok{\textless{}{-}}\NormalTok{ d}\SpecialCharTok{$}\NormalTok{species                   }\CommentTok{\# 220 species  x 93 samples}
+\NormalTok{ge }\OtherTok{\textless{}{-}}\NormalTok{ d}\SpecialCharTok{$}\NormalTok{genes                     }\CommentTok{\# 14,226 genes x 93 samples}
+\NormalTok{md }\OtherTok{\textless{}{-}}\NormalTok{ d}\SpecialCharTok{$}\NormalTok{metadata                  }\CommentTok{\# one row per sample}
+\NormalTok{cy }\OtherTok{\textless{}{-}}\NormalTok{ d}\SpecialCharTok{$}\NormalTok{cytokines                 }\CommentTok{\# 15 immune markers, one row per sample}
+\end{Highlighting}
+\end{Shaded}
+
+\section{1. Do the pieces fit
+together?}\label{do-the-pieces-fit-together}
+
+The most dangerous QC failure is silent mis-alignment: if the
+count-table columns and the metadata rows were in a different order,
+every test would be wrong and nothing would warn us.
+\texttt{read\_counts()} refuses to return if the sample ids of the two
+count tables and the metadata are not exactly the same set, and it
+reorders the columns to match the metadata --- but it does \textbf{not}
+check the cytokine table, so we check all four tables ourselves here,
+both for the same \emph{set} of ids and for the same \emph{order}.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Every cell is turned into text, so one column can hold counts and yes/no answers.}
+\FunctionTok{tibble}\NormalTok{(}
+  \AttributeTok{check =} \FunctionTok{c}\NormalTok{(}
+    \StringTok{"samples in metadata"}\NormalTok{,}
+    \StringTok{"species table: features x samples"}\NormalTok{,}
+    \StringTok{"gene table: features x samples"}\NormalTok{,}
+    \StringTok{"cytokines rows"}\NormalTok{,}
+    \StringTok{"sample\_id appears more than once?"}\NormalTok{,}
+    \StringTok{"participant appears more than once?"}\NormalTok{,}
+    \StringTok{"species ids same set as metadata?"}\NormalTok{,}
+    \StringTok{"gene ids same set as metadata?"}\NormalTok{,}
+    \StringTok{"cytokine ids same set as metadata?"}\NormalTok{,}
+    \StringTok{"species columns ordered like metadata?"}\NormalTok{,}
+    \StringTok{"gene columns ordered like metadata?"}\NormalTok{,}
+    \StringTok{"cytokine rows ordered like metadata?"}\NormalTok{,}
+    \StringTok{"negative or fractional counts anywhere?"}\NormalTok{,}
+    \StringTok{"non{-}integer counts?"}
+\NormalTok{  ),}
+  \AttributeTok{result =} \FunctionTok{c}\NormalTok{(}
+    \FunctionTok{nrow}\NormalTok{(md),}
+    \FunctionTok{str\_c}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(sp), }\StringTok{" x "}\NormalTok{, }\FunctionTok{ncol}\NormalTok{(sp)),}
+    \FunctionTok{str\_c}\NormalTok{(}\FunctionTok{nrow}\NormalTok{(ge), }\StringTok{" x "}\NormalTok{, }\FunctionTok{ncol}\NormalTok{(ge)),}
+    \FunctionTok{nrow}\NormalTok{(cy),}
+    \FunctionTok{anyDuplicated}\NormalTok{(md}\SpecialCharTok{$}\NormalTok{sample\_id),}
+    \FunctionTok{anyDuplicated}\NormalTok{(md}\SpecialCharTok{$}\NormalTok{participant\_id),}
+    \FunctionTok{setequal}\NormalTok{(md}\SpecialCharTok{$}\NormalTok{sample\_id, }\FunctionTok{colnames}\NormalTok{(sp)),}
+    \FunctionTok{setequal}\NormalTok{(md}\SpecialCharTok{$}\NormalTok{sample\_id, }\FunctionTok{colnames}\NormalTok{(ge)),}
+    \FunctionTok{setequal}\NormalTok{(md}\SpecialCharTok{$}\NormalTok{sample\_id, cy}\SpecialCharTok{$}\NormalTok{sample\_id),}
+    \FunctionTok{identical}\NormalTok{(}\FunctionTok{colnames}\NormalTok{(sp), md}\SpecialCharTok{$}\NormalTok{sample\_id),}
+    \FunctionTok{identical}\NormalTok{(}\FunctionTok{colnames}\NormalTok{(ge), md}\SpecialCharTok{$}\NormalTok{sample\_id),}
+    \FunctionTok{identical}\NormalTok{(cy}\SpecialCharTok{$}\NormalTok{sample\_id, md}\SpecialCharTok{$}\NormalTok{sample\_id),}
+    \FunctionTok{any}\NormalTok{(sp }\SpecialCharTok{\textless{}} \DecValTok{0}\NormalTok{) }\SpecialCharTok{||} \FunctionTok{any}\NormalTok{(ge }\SpecialCharTok{\textless{}} \DecValTok{0}\NormalTok{),}
+    \FunctionTok{any}\NormalTok{(sp }\SpecialCharTok{!=} \FunctionTok{round}\NormalTok{(sp)) }\SpecialCharTok{||} \FunctionTok{any}\NormalTok{(ge }\SpecialCharTok{!=} \FunctionTok{round}\NormalTok{(ge))}
+\NormalTok{  ) }\SpecialCharTok{|\textgreater{}}
+    \FunctionTok{as.character}\NormalTok{()}
+\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+# A tibble: 14 x 2
+   check                                   result    
+   <chr>                                   <chr>     
+ 1 samples in metadata                     93        
+ 2 species table: features x samples       220 x 93  
+ 3 gene table: features x samples          14226 x 93
+ 4 cytokines rows                          93        
+ 5 sample_id appears more than once?       0         
+ 6 participant appears more than once?     0         
+ 7 species ids same set as metadata?       TRUE      
+ 8 gene ids same set as metadata?          TRUE      
+ 9 cytokine ids same set as metadata?      TRUE      
+10 species columns ordered like metadata?  TRUE      
+11 gene columns ordered like metadata?     TRUE      
+12 cytokine rows ordered like metadata?    TRUE      
+13 negative or fractional counts anywhere? FALSE     
+14 non-integer counts?                     FALSE     
+\end{verbatim}
+
+\begin{quote}
+\textbf{Sanity check.} The workshop materials say Study B has 93
+samples. Both tables should say \texttt{x\ 93}. One participant should
+give one sample --- the duplicates check must be \texttt{0}, and all six
+id checks should say \texttt{TRUE}. To verify one of them yourself: open
+\texttt{06\_cytokines.csv}, sort its first column, and confirm the first
+and last entries are \texttt{B001} and \texttt{B093}, just as in
+\texttt{01\_metadata.csv}.
+\end{quote}
+
+\section{2. Who is in the study, and is it
+balanced?}\label{who-is-in-the-study-and-is-it-balanced}
+
+Downstream tests assume the groups we compare are big enough and not
+wildly lopsided. Also worth checking now: is \texttt{rnaseq\_batch}
+(which sequencing run a sample was processed in) mixed evenly across the
+arms, or confounded with them? If batch sat entirely inside one arm we
+could never separate ``the pill changed the genes'' from ``the second
+run did''.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(}\FunctionTok{table}\NormalTok{(}\AttributeTok{Arm =}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{arm, }\StringTok{\textasciigrave{}}\AttributeTok{RNA{-}seq batch}\StringTok{\textasciigrave{}} \OtherTok{=}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{rnaseq\_batch))}
+\end{Highlighting}
+\end{Shaded}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}lrr@{}}
+\toprule\noalign{}
+& B1 & B2 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+injectable & 20 & 19 \\
+pill & 14 & 14 \\
+ring & 13 & 13 \\
+\end{longtable}
+}
+
+All 93 participants contribute exactly one sample. The three arms (93
+samples: 28 pill, 39 injectable, 26 ring) are reasonably close in size
+and both sequencing batches contain samples from all three arms, so
+batch can be included as a covariate without swallowing the treatment.
+
+Study B has a single visit per participant, so there is no time point to
+cross-tabulate against \texttt{rnaseq\_batch} --- that check belongs to
+Study A. What we can ask here is the Study B version of ``did the arms
+differ at baseline?'': with one visit, every metadata column is a
+baseline measurement, so we compare them across arms.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(}\FunctionTok{table}\NormalTok{(}\AttributeTok{Arm =}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{arm, }\StringTok{\textasciigrave{}}\AttributeTok{BV status}\StringTok{\textasciigrave{}} \OtherTok{=}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{bv))}
+\end{Highlighting}
+\end{Shaded}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}lrrr@{}}
+\toprule\noalign{}
+& intermediate & negative & positive \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+injectable & 0 & 20 & 19 \\
+pill & 2 & 16 & 10 \\
+ring & 1 & 15 & 10 \\
+\end{longtable}
+}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(}\FunctionTok{table}\NormalTok{(}\AttributeTok{Arm =}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{arm, }\StringTok{\textasciigrave{}}\AttributeTok{Any STI}\StringTok{\textasciigrave{}} \OtherTok{=}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{any\_sti))}
+\end{Highlighting}
+\end{Shaded}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}lrr@{}}
+\toprule\noalign{}
+& 0 & 1 \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+injectable & 20 & 19 \\
+pill & 16 & 12 \\
+ring & 9 & 17 \\
+\end{longtable}
+}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{tibble}\NormalTok{(}
+  \AttributeTok{variable =} \FunctionTok{c}\NormalTok{(}\StringTok{"Nugent score"}\NormalTok{, }\StringTok{"pH"}\NormalTok{),}
+  \AttributeTok{test     =} \FunctionTok{c}\NormalTok{(}\StringTok{"Kruskal–Wallis"}\NormalTok{, }\StringTok{"Kruskal–Wallis"}\NormalTok{),}
+  \AttributeTok{p\_value  =} \FunctionTok{signif}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\FunctionTok{kruskal.test}\NormalTok{(nugent }\SpecialCharTok{\textasciitilde{}}\NormalTok{ arm, md)}\SpecialCharTok{$}\NormalTok{p.value,}
+                      \FunctionTok{kruskal.test}\NormalTok{(ph }\SpecialCharTok{\textasciitilde{}}\NormalTok{ arm, md)}\SpecialCharTok{$}\NormalTok{p.value), }\DecValTok{2}\NormalTok{)}
+\NormalTok{) }\SpecialCharTok{|\textgreater{}}\NormalTok{ knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{()}
+\end{Highlighting}
+\end{Shaded}
+
+{\def\LTcaptype{none} % do not increment counter
+\begin{longtable}[]{@{}llr@{}}
+\toprule\noalign{}
+variable & test & p\_value \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Nugent score & Kruskal--Wallis & 0.63 \\
+pH & Kruskal--Wallis & 0.02 \\
+\end{longtable}
+}
+
+BV status (Fisher's exact p = 0.45) and STI history (p = 0.22) are
+distributed similarly across arms, and Nugent scores are too (median 2
+in pill and injectable, 2.5 in ring). \textbf{Vaginal pH does differ}
+(Kruskal--Wallis p = 0.02; median 4.55 in the pill arm vs 5.0 in
+injectable and ring, and the ring arm has no sample below 4.4). The
+shift is small and could easily be a chance imbalance among 26--39
+people, but because pH tracks BV and shifts with contraceptive hormones
+in the literature, we will keep it in mind --- and consider adjusting
+for it --- when the arms are compared on the microbiome.
+
+\section{3. Missing values}\label{missing-values}
+
+Count tables almost never have missing values (an unmeasured gene just
+gets zero reads), so missingness lives in the spreadsheet-like tables.
+For the metadata the answer is good news: \textbf{not a single cell is
+missing} --- every one of the 8 columns (\texttt{sample\_id},
+\texttt{participant\_id}, \texttt{arm}, \texttt{bv}, \texttt{nugent},
+\texttt{ph}, \texttt{any\_sti}, \texttt{rnaseq\_batch}) is filled for
+all 93 samples, so no sample has to be dropped for lack of arm or batch
+information and no variable needs imputation or a ``missing'' category:
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{bind\_rows}\NormalTok{(}
+  \AttributeTok{metadata  =} \FunctionTok{tibble}\NormalTok{(}\AttributeTok{source =} \StringTok{"metadata"}\NormalTok{,  }\AttributeTok{missing =} \FunctionTok{sum}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(md)),  }\AttributeTok{cells =} \FunctionTok{nrow}\NormalTok{(md) }\SpecialCharTok{*} \FunctionTok{ncol}\NormalTok{(md)),}
+  \AttributeTok{cytokines =} \FunctionTok{tibble}\NormalTok{(}\AttributeTok{source =} \StringTok{"cytokines"}\NormalTok{, }\AttributeTok{missing =} \FunctionTok{sum}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(cy)), }\AttributeTok{cells =} \FunctionTok{nrow}\NormalTok{(cy) }\SpecialCharTok{*} \FunctionTok{ncol}\NormalTok{(cy))}
+\NormalTok{) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{mutate}\NormalTok{(}\AttributeTok{percent =} \FunctionTok{round}\NormalTok{(}\DecValTok{100} \SpecialCharTok{*}\NormalTok{ missing }\SpecialCharTok{/}\NormalTok{ cells, }\DecValTok{2}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+# A tibble: 2 x 4
+  source    missing cells percent
+  <chr>       <int> <int>   <dbl>
+1 metadata        0   744    0   
+2 cytokines      30  1488    2.02
+\end{verbatim}
+
+So the only missing data in the study is here: 30 of 1,395 cytokine
+cells. Which samples?
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{md\_missing }\OtherTok{\textless{}{-}}\NormalTok{ md}\SpecialCharTok{$}\NormalTok{sample\_id[}\FunctionTok{rowSums}\NormalTok{(}\FunctionTok{is.na}\NormalTok{(cy[, }\SpecialCharTok{{-}}\DecValTok{1}\NormalTok{])) }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{]}
+\NormalTok{md\_missing}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{verbatim}
+[1] "B018" "B029"
+\end{verbatim}
+
+\textbf{Finding: \texttt{B018} and \texttt{B029} are missing all 15
+cytokines} (the columns are skipped, not partly filled), which reads
+like an assay that failed for two samples. Nothing to impute --- they
+simply have no immune measurements. We keep them for the microbiome and
+gene analyses and lose them only in cytokine work.
+
+\begin{quote}
+\textbf{Sanity check.} \texttt{is.na(cy)} should count exactly 30 (2
+samples × 15 markers), and the two ids above should appear in
+\texttt{01\_metadata.csv} with all other fields filled in.
+\end{quote}
+
+\section{4. Library sizes: how much did we
+sequence?}\label{library-sizes-how-much-did-we-sequence}
+
+``Library size'' means the total number of reads mapped for a sample ---
+literally the column sum of the count table. Samples far below the rest
+may just have been sequenced shallowly, which makes them noisy, not
+broken.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{qc }\OtherTok{\textless{}{-}} \FunctionTok{bind\_cols}\NormalTok{(}
+\NormalTok{  md,}
+  \AttributeTok{lib\_species =} \FunctionTok{colSums}\NormalTok{(sp),}
+  \AttributeTok{lib\_genes   =} \FunctionTok{colSums}\NormalTok{(ge)}
+\NormalTok{)}
+
+\NormalTok{p\_sp }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(qc, }\FunctionTok{aes}\NormalTok{(lib\_species)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_histogram}\NormalTok{(}\AttributeTok{bins =} \DecValTok{30}\NormalTok{, }\AttributeTok{fill =} \StringTok{"grey70"}\NormalTok{, }\AttributeTok{colour =} \StringTok{"white"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Microbiome"}\NormalTok{, }\AttributeTok{x =} \StringTok{"reads"}\NormalTok{, }\AttributeTok{y =} \StringTok{"samples"}\NormalTok{)}
+
+\NormalTok{p\_ge }\OtherTok{\textless{}{-}} \FunctionTok{ggplot}\NormalTok{(qc, }\FunctionTok{aes}\NormalTok{(lib\_genes)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_histogram}\NormalTok{(}\AttributeTok{bins =} \DecValTok{30}\NormalTok{, }\AttributeTok{fill =} \StringTok{"grey70"}\NormalTok{, }\AttributeTok{colour =} \StringTok{"white"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"RNA{-}seq"}\NormalTok{, }\AttributeTok{x =} \StringTok{"reads"}\NormalTok{, }\AttributeTok{y =} \ConstantTok{NULL}\NormalTok{)}
+
+\NormalTok{p\_sp }\SpecialCharTok{+}\NormalTok{ p\_ge}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{01-qc_files/figure-pdf/libsize-1.pdf}}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# The rules below are our choices, not universal constants — see "Choices made".}
+\NormalTok{rule }\OtherTok{\textless{}{-}} \FunctionTok{median}\NormalTok{(qc}\SpecialCharTok{$}\NormalTok{lib\_species) }\SpecialCharTok{/} \DecValTok{2}
+\NormalTok{qc }\SpecialCharTok{|\textgreater{}} \FunctionTok{filter}\NormalTok{(lib\_species }\SpecialCharTok{\textless{}}\NormalTok{ rule) }\SpecialCharTok{|\textgreater{}} \FunctionTok{select}\NormalTok{(sample\_id, lib\_species) }\SpecialCharTok{|\textgreater{}}
+\NormalTok{  knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(}\AttributeTok{digits =} \DecValTok{0}\NormalTok{, }\AttributeTok{caption =} \FunctionTok{str\_c}\NormalTok{(}\StringTok{"Microbiome: samples below half the median library size ("}\NormalTok{, }\FunctionTok{format}\NormalTok{(rule, }\AttributeTok{big.mark =} \StringTok{","}\NormalTok{), }\StringTok{" reads)"}\NormalTok{))}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}lr@{}}
+\caption{Microbiome: samples below half the median library size (14,606
+reads)}\tabularnewline
+\toprule\noalign{}
+sample\_id & lib\_species \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+sample\_id & lib\_species \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+B003 & 14057 \\
+B006 & 5247 \\
+B024 & 11627 \\
+B065 & 11570 \\
+B069 & 12927 \\
+B070 & 13333 \\
+B076 & 14534 \\
+B083 & 10756 \\
+B091 & 13543 \\
+\end{longtable}
+
+Species libraries run from about 5,000 to 77,000 reads (median 29,000),
+and nine samples fall below half the median --- \texttt{B006} is the
+lowest at 5,247 reads, roughly six times fewer reads than the median
+sample. None is so low that it must be dropped; we flag them and will
+look again after ordination in case any sits alone. Gene libraries are
+around 6--24 million reads, tightly packed --- only one sample sits
+below half the median there, \textbf{\texttt{B042} at 5.9 million}
+reads, and only barely (the rule is 6.4 million). \texttt{B042} is not
+one of the nine low-depth microbiome samples, so its shallow sequencing
+is specific to the RNA-seq library, not to the sample as a whole.
+
+\begin{quote}
+\textbf{Sanity check.} Add the first five columns of any sample of your
+choice in \texttt{02\_microbiome\_counts.csv} with a calculator --- it
+should match \texttt{qc\$lib\_species{[}qc\$sample\_id\ ==\ "B001"{]}}
+(or whichever sample you picked).
+\end{quote}
+
+\section{5. Dominance: is one feature eating each
+sample?}\label{dominance-is-one-feature-eating-each-sample}
+
+Both tables are \textbf{compositional}: sequencing gives us proportions,
+not absolute amounts, so every table must sum to the library size. That
+means a huge read count for one feature mechanically shrinks all the
+others. Some dominance is expected --- vaginal communities are often 90
+\% one \emph{Lactobacillus} --- but near-total domination is worth
+seeing explicitly.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{top\_share }\OtherTok{\textless{}{-}} \ControlFlowTok{function}\NormalTok{(m) }\FunctionTok{apply}\NormalTok{(m, }\DecValTok{2}\NormalTok{, max) }\SpecialCharTok{/} \FunctionTok{colSums}\NormalTok{(m)}
+\NormalTok{qc}\SpecialCharTok{$}\NormalTok{top\_species }\OtherTok{\textless{}{-}} \FunctionTok{top\_share}\NormalTok{(sp)}
+\NormalTok{qc}\SpecialCharTok{$}\NormalTok{top\_gene    }\OtherTok{\textless{}{-}} \FunctionTok{top\_share}\NormalTok{(ge)}
+
+\NormalTok{worst\_sp }\OtherTok{\textless{}{-}}\NormalTok{ qc }\SpecialCharTok{|\textgreater{}} \FunctionTok{slice\_max}\NormalTok{(top\_species, }\AttributeTok{n =} \DecValTok{3}\NormalTok{) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{transmute}\NormalTok{(sample\_id, }\AttributeTok{share =} \FunctionTok{str\_c}\NormalTok{(}\FunctionTok{round}\NormalTok{(}\DecValTok{100} \SpecialCharTok{*}\NormalTok{ top\_species, }\DecValTok{1}\NormalTok{), }\StringTok{"\%"}\NormalTok{))}
+
+\NormalTok{knitr}\SpecialCharTok{::}\FunctionTok{kable}\NormalTok{(worst\_sp, }\AttributeTok{caption =} \StringTok{"Samples whose single most abundant species takes the largest share"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\begin{longtable}[]{@{}ll@{}}
+\caption{Samples whose single most abundant species takes the largest
+share}\tabularnewline
+\toprule\noalign{}
+sample\_id & share \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+sample\_id & share \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+B030 & 99.8\% \\
+B016 & 99.7\% \\
+B012 & 99.7\% \\
+\end{longtable}
+
+The median sample's biggest species is about half of all reads ---
+normal for this body site. The extreme is \texttt{B030}, which is 99.8
+\% \emph{Lactobacillus iners}. That is not an error: some women really
+are monoculture, and it is exactly the biology we want to study. We keep
+it, but we will not be surprised later if it pulls ordinations towards
+itself.
+
+\begin{quote}
+\textbf{Sanity check.} In \texttt{02\_microbiome\_counts.csv}, find the
+\texttt{B030} column, sort it, and confirm the biggest number is about
+99.8 \% of the column sum.
+\end{quote}
+
+\section{6. Anything odd inside the
+RNA-seq?}\label{anything-odd-inside-the-rna-seq}
+
+The largest gene share in any sample is 29\% --- in \texttt{B093},
+nearly a third of all reads come from \textbf{HBB}, the beta chain of
+haemoglobin. Haemoglobin genes are the classic signature of blood
+contamination in mucosal swabs: the sample picked up red blood cells,
+and RNA from blood crowded out cervical/vaginal transcripts. It is worth
+remembering when interpreting \texttt{B093} specifically, but a quarter
+of samples carry some HBB signal and the difference is quantitative, not
+broken, so we keep the sample.
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\CommentTok{\# Proportion of each sample\textquotesingle{}s reads belonging to the haemoglobin genes HBB/HBA}
+\NormalTok{hb }\OtherTok{\textless{}{-}}\NormalTok{ d}\SpecialCharTok{$}\NormalTok{gene\_info }\SpecialCharTok{|\textgreater{}} \FunctionTok{filter}\NormalTok{(symbol }\SpecialCharTok{\%in\%} \FunctionTok{c}\NormalTok{(}\StringTok{"HBB"}\NormalTok{, }\StringTok{"HBA1"}\NormalTok{, }\StringTok{"HBA2"}\NormalTok{)) }\SpecialCharTok{|\textgreater{}} \FunctionTok{pull}\NormalTok{(ensembl\_gene\_id)}
+\NormalTok{qc}\SpecialCharTok{$}\NormalTok{hbb\_share }\OtherTok{\textless{}{-}} \FunctionTok{colSums}\NormalTok{(ge[hb, , }\AttributeTok{drop =} \ConstantTok{FALSE}\NormalTok{]) }\SpecialCharTok{/}\NormalTok{ qc}\SpecialCharTok{$}\NormalTok{lib\_genes}
+
+\FunctionTok{ggplot}\NormalTok{(qc, }\FunctionTok{aes}\NormalTok{(}\FunctionTok{reorder}\NormalTok{(sample\_id, hbb\_share), hbb\_share)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_col}\NormalTok{(}\AttributeTok{fill =} \StringTok{"grey70"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_continuous}\NormalTok{(}\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\NormalTok{percent) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Haemoglobin (HBB/HBA) reads per sample"}\NormalTok{,}
+       \AttributeTok{x =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{y =} \StringTok{"share of all gene reads"}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{theme}\NormalTok{(}\AttributeTok{axis.text.x =} \FunctionTok{element\_blank}\NormalTok{())}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{01-qc_files/figure-pdf/hbb-1.pdf}}
+
+\begin{quote}
+\textbf{Sanity check.} Sort one sample's column in
+\texttt{04\_rnaseq\_counts.csv.gz} (unzip it first) by value; the top
+gene for \texttt{B093} should be HBB.
+\end{quote}
+
+\section{7. Batch effects at a glance}\label{batch-effects-at-a-glance}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\FunctionTok{ggplot}\NormalTok{(qc, }\FunctionTok{aes}\NormalTok{(rnaseq\_batch, lib\_genes, }\AttributeTok{fill =}\NormalTok{ arm)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_boxplot}\NormalTok{() }\SpecialCharTok{+}
+  \FunctionTok{scale\_y\_log10}\NormalTok{(}\AttributeTok{labels =}\NormalTok{ scales}\SpecialCharTok{::}\NormalTok{comma) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"Gene library size by sequencing batch and arm"}\NormalTok{,}
+       \AttributeTok{y =} \StringTok{"reads (log10)"}\NormalTok{, }\AttributeTok{fill =} \StringTok{"Arm"}\NormalTok{, }\AttributeTok{x =} \StringTok{"Sequencing batch"}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{01-qc_files/figure-pdf/batch-1.pdf}}
+
+No batch jumps out as different in depth, and both arms appear in both
+batches. A real check for batch effects in expression profiles comes
+later (ordination coloured by batch); this only rules out crude depth
+differences.
+
+\section{8. How prevalent are the
+features?}\label{how-prevalent-are-the-features}
+
+\begin{Shaded}
+\begin{Highlighting}[]
+\NormalTok{prev\_sp }\OtherTok{\textless{}{-}} \FunctionTok{rowSums}\NormalTok{(sp }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) }\SpecialCharTok{/} \FunctionTok{ncol}\NormalTok{(sp)}
+\NormalTok{prev\_ge }\OtherTok{\textless{}{-}} \FunctionTok{rowSums}\NormalTok{(ge }\SpecialCharTok{\textgreater{}} \DecValTok{0}\NormalTok{) }\SpecialCharTok{/} \FunctionTok{ncol}\NormalTok{(ge)}
+
+\FunctionTok{data.frame}\NormalTok{(}\AttributeTok{prevalence =} \FunctionTok{c}\NormalTok{(prev\_sp, prev\_ge),}
+           \AttributeTok{table =} \FunctionTok{rep}\NormalTok{(}\FunctionTok{c}\NormalTok{(}\StringTok{"species"}\NormalTok{, }\StringTok{"genes"}\NormalTok{), }\FunctionTok{c}\NormalTok{(}\FunctionTok{length}\NormalTok{(prev\_sp), }\FunctionTok{length}\NormalTok{(prev\_ge)))) }\SpecialCharTok{|\textgreater{}}
+  \FunctionTok{ggplot}\NormalTok{(}\FunctionTok{aes}\NormalTok{(prevalence, }\AttributeTok{fill =}\NormalTok{ table)) }\SpecialCharTok{+}
+  \FunctionTok{geom\_density}\NormalTok{(}\AttributeTok{alpha =} \FloatTok{0.5}\NormalTok{) }\SpecialCharTok{+}
+  \FunctionTok{labs}\NormalTok{(}\AttributeTok{title =} \StringTok{"In how many samples is each feature seen?"}\NormalTok{,}
+       \AttributeTok{x =} \StringTok{"fraction of samples with the feature present"}\NormalTok{, }\AttributeTok{y =} \ConstantTok{NULL}\NormalTok{, }\AttributeTok{fill =} \ConstantTok{NULL}\NormalTok{)}
+\end{Highlighting}
+\end{Shaded}
+
+\pandocbounded{\includegraphics[keepaspectratio]{01-qc_files/figure-pdf/prevalence-1.pdf}}
+
+Most species are rare (72 \% of them appear in under 10 \% of samples)
+--- typical for microbial data, and a reminder that feature filtering
+(\texttt{min\_samples}) will discard a lot before any
+differential-abundance test. Genes, in contrast, are dense: nearly all
+are detected in most samples, because sequencing 14 M reads into 14,226
+well-known genes rarely leaves one empty.
+
+\section{Verdict}\label{verdict}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Structure:} all four tables (metadata, species, genes,
+  cytokines) agree on the same 93 samples and 93 participants, in the
+  same order; counts are non-negative integers. No structural problems.
+\item
+  \textbf{Balance:} 28 pill / 39 injectable / 26 ring, both sequencing
+  batches present in every arm. Baseline variables are balanced across
+  arms except a small difference in vaginal pH (p = 0.02) worth
+  remembering at analysis time.
+\item
+  \textbf{Missing data:} the metadata is 100 \% complete. \texttt{B018}
+  and \texttt{B029} lack all cytokines (keep for the rest; drop them for
+  cytokine analyses). No other missing values anywhere.
+\item
+  \textbf{Flagged samples:} nine low-depth microbiome samples (still
+  usable); \texttt{B030} is a near-monoculture of \emph{L. iners} (real
+  biology, watch it in ordinations); \texttt{B093} carries heavy blood
+  signal in its transcriptome (remember when interpreting it).
+\item
+  \textbf{Nothing so broken that it must be removed before analysis.}
+\end{itemize}
+
+\subsection{Choices made}\label{choices-made}
+
+\begin{itemize}
+\tightlist
+\item
+  Flagged low-depth samples at \textbf{below half the median library
+  size}, rather than a fixed read count, so the rule adapts to the
+  table's own spread; a fixed floor (e.g.~10,000 reads) would be more
+  standard in published microbiome pipelines.
+\item
+  Did \textbf{not remove any samples} in the QC document itself ---
+  removal decisions are deferred to the analysis documents, where we can
+  see whether a flagged sample actually drives a result.
+\item
+  Did \textbf{not impute the 30 missing cytokine values} ---
+  complete-case analysis (dropping the two affected samples only for
+  cytokine questions) is simpler and safer.
+\item
+  Used \textbf{prevalence curves} to preview feature filtering but
+  applied no filter here; the filter thresholds belong to each
+  analysis's ``Choices made''.
+\item
+  Checked batch only via \textbf{library size}, not full-expression
+  profiles --- the stronger check comes with ordination in the analysis
+  notebooks.
+\item
+  For the baseline check we used \textbf{Kruskal--Wallis} for Nugent
+  score and pH (non-normal, three groups) and \textbf{Fisher's exact
+  test} for BV and STI (small counts in some cells); a chi-squared test
+  would be the alternative, but some expected counts are too small for
+  it to be trustworthy. We report the pH difference rather than adjust
+  for it here --- the decision to include pH as a covariate belongs to
+  each analysis document's ``Choices made''.
+\end{itemize}
+
+
+
+
+\end{document}

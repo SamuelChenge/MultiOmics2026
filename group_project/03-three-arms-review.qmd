@@ -1,0 +1,519 @@
+---
+title: "Review of the ring-vs-systemic analysis, and a look at all three arms (Study B)"
+subtitle: "Critique of 02-ring-vs-systemic, plus pill and injectable compared individually"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 2
+  typst:
+    toc: true
+    papersize: "a4"
+    fontsize: 10pt
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+> **What this document is.** The file `02-ring-vs-systemic.qmd` compared the
+> contraceptive ring with the two other methods **pooled together**. Here we
+> (1) review that document's choices, (2) compare the **three arms one by one**
+> (ring, pill, injectable), and (3) explain every statistic in plain language.
+> Study B is a constructed workshop dataset, so treat the numbers as practice,
+> not as findings to cite.
+
+```{r setup}
+#| include: false
+library(tidyverse)
+library(here)
+library(DESeq2)
+library(microViz)
+library(phyloseq)
+library(vegan)
+library(patchwork)
+library(ggrepel)
+library(knitr)
+source(here("R/count_tables.R"))
+```
+
+```{r data}
+d  <- read_counts("group_b")
+ge <- d$genes                       # raw gene counts: 14,226 genes x 93 samples
+md <- as.data.frame(d$metadata)
+rownames(md) <- md$sample_id
+md$arm <- factor(md$arm, levels = c("ring", "pill", "injectable"))
+md$rnaseq_batch <- factor(md$rnaseq_batch)
+md$arm_group <- factor(if_else(md$arm == "ring", "ring", "systemic"),
+                       levels = c("systemic", "ring"))
+stopifnot(identical(colnames(ge), rownames(md)))   # order check before any test
+genes_f <- ge[rowSums(ge >= 10) >= 10, ]           # same gene filter as file 02
+```
+
+**Samples per arm:** ring `r sum(md$arm == "ring")`, pill `r sum(md$arm == "pill")`,
+injectable `r sum(md$arm == "injectable")`. Every sample is a different person
+(`r length(unique(md$participant_id))` people for `r nrow(md)` samples), so no one
+is counted twice.
+
+# At a glance
+
+- **The old document's main result holds up as arithmetic.** I re-ran its pooled
+  model and got the same 165 genes at FDR < 0.05.
+- **But the headline is fragile.** The overall "does the arm matter?" test on all
+  three arms is **not significant** (p around 0.10). The pooled two-group test is the
+  one that reaches p around 0.04 to 0.05, which is right on the 0.05 line.
+- **The pill and the injectable look alike** in the gene data. Pooling them is
+  defensible, but the old document justified it by eye, not by a test.
+- **The ring differs from both systemic methods in the same direction**, but the
+  size of the difference depends on how you cut the comparison, and on whether you
+  adjust for vaginal pH.
+- **Overall verdict:** suggestive, not conclusive. Any ring effect is modest and
+  needs replicating.
+
+# 1. What the 02 document did
+
+1. Checked sample order and batch balance (good).
+2. Drew a gene ordination (PCoA) and ran PERMANOVA for arm and batch.
+3. Pooled pill and injectable into one "systemic" group.
+4. Ran DESeq2 on raw counts: `~ batch + arm_group`, ring vs systemic.
+5. Reported 165 genes at FDR < 0.05, and a sensitivity check without `B093`.
+
+# 2. Critique: what I would change
+
+**What was done well:** raw counts went into DESeq2; the gene filter did not use
+the groups; the order check was explicit; batch was balanced across arms and put in
+the model; FDR (false-discovery control) was used instead of raw p-values for the
+gene list; and a sensitivity check was run.
+
+Here are the things I would change, most important first.
+
+**1. Pooling was assumed, not tested.**
+*What it did:* merged pill and injectable after looking at one picture.
+*Why it matters:* pooling changes the question. The control group becomes 67
+people, 58 % of them injectable users, so the answer leans towards "ring vs injectable".
+*What the data say:* pill vs injectable gives only 11 genes at FDR < 0.05, and the
+raw p-value count (738) is close to what chance alone gives (about 711); see section
+3.3. So pooling is *probably* fine here. The old document just did not show it.
+*What I would do:* make the three-way comparison the main analysis, and report
+pill vs injectable as a formal test.
+
+**2. The headline test is the most flexible one.**
+*What it did:* PERMANOVA on "ring vs systemic" gave p = 0.04 and was called
+"small but real".
+*Why it matters:* "ring vs systemic" is a fair question, and it is the workshop's
+question. But it is one of several ways to split three arms, and it has one degree
+of freedom, so it is the most sensitive version for that one direction. The broader
+"does arm matter at all?" test gives p around 0.10 (section 3.1). Both results
+should be reported, with the broader one shown first.
+*What I would do:* lead with the three-arm test, then present ring vs systemic as the
+specific comparison, saying which test it is.
+
+**3. Batch was not handled jointly in PERMANOVA.**
+*What it did:* `adonis2(dm ~ arm_group)` and `adonis2(dm ~ rnaseq_batch)` were run
+separately.
+*Why it matters:* PERMANOVA's default is to test terms in order, so the first term
+gets credit for anything it shares with the second. Putting both in one model and
+using `by = "margin"` gives each term its own adjusted test.
+*What I would do:* `adonis2(dm ~ arm + rnaseq_batch, by = "margin")`.
+
+**4. "Small but real" overstates p = 0.04.**
+*Why it matters:* the "small but real" wording rests on one p-value of 0.04, from
+one of several possible ways to split three arms. The p-value also sits on the 0.05
+line: with the old 999 permutations, reruns with different random seeds gave values
+from 0.03 to 0.055 (I re-ran it 20 times). Given those choices, this is weak evidence.
+*What I would do:* call it "suggestive" and say what it would take to confirm it.
+
+**5. The pH adjustment was flagged but never tested.**
+*What it did:* `01-qc` found that vaginal pH differs by arm (Kruskal-Wallis
+p = `r round(kruskal.test(ph ~ arm, data = md)$p.value, 3)`). The 02 document
+noted this as a possible confounder but did not adjust for it.
+*What I found:* adding pH to the model changes the counts a lot
+(section 3.4). Ring vs pill goes from 97 to 191 genes. That is a real sensitivity,
+and it is not obvious which answer is right.
+*Why it is tricky:* pH may be a *result* of the ring (or of the microbiome that
+hormones shape), not a separate cause. Adjusting for something on the causal path
+can remove the effect you are looking for.
+*What I would do:* report both models, say which one you believe and why, and
+never treat either as "the" answer silently.
+
+**6. The gene-list counts are about twice what chance would give.**
+*What I found:* at raw p < 0.05, ring vs pill has 1,552 genes and ring vs injectable
+1,605, against about 711 expected by chance (section 3.3).
+*Why it matters:* a widespread small shift is what you expect from a real hormone
+effect on tissue, but also from technical or cell-mix differences (for example RNA
+quality or the proportion of immune or blood cells). The old document only checked
+`B093` for blood.
+*What I would do:* check marker genes for cell types and RNA quality before
+attributing the shift to the ring.
+
+**7. The two "sanity checks" do not check what they say.**
+
+- The PERMANOVA check asks you to recompute R² from `adonis2`. That reproduces the
+  same R² but does **not** verify the "share of variation on axis 1", which is a
+  different number from a different calculation.
+- The top-gene check says the raw mean ratio "should be close" to the model's
+  log2 fold change. It can differ, because the model adjusts for batch.
+*What I would do:* a check that tests the claim directly. For axis 1, compare
+`eig[1] / sum(eig)` with the printed percentage. For the top gene, compare means
+within each batch.
+
+**8. A wrong statement in "Choices made".**
+The old document says it reports "unadjusted p-values nowhere". The PERMANOVA
+p-values it quotes (0.040 and 0.107) are unadjusted. Either adjust them or change
+the sentence.
+
+**9. Hit counts are not effect sizes.**
+Ring vs injectable has 39 people, ring vs pill 28. A bigger group has more power,
+so it finds more genes even for the same effect. Compare the size of the effects,
+not just the number of hits.
+
+**10. No effect-size threshold or shrinkage.**
+The gene list is ranked by FDR only. Log2 fold changes are reported unshrunk, which
+can exaggerate small-count genes. The packages for shrinkage (`apeglm`, `ashr`) are
+not installed here. Install `ashr` and use `lfcShrink()` for a fairer ranking.
+
+# 3. Comparing the three arms
+
+## 3.1 Do the arms differ overall?
+
+```{r ordination}
+#| fig-width: 6.5
+#| fig-height: 4.6
+#| fig-cap: "Each dot is one person's gene profile. Ellipses show where 95 % of each arm falls. The arms overlap heavily."
+ps <- as_counts(dataset = "group_b", table = "rnaseq",
+                min_count = 10, min_samples = 10, data = d)
+ord <- ps |>
+  tax_transform("clr", zero_replace = "halfmin") |>
+  dist_calc("euclidean") |>
+  ord_calc("PCoA")
+dm  <- attr(ord, "dist")
+eig <- attr(ord, "ord")$CA$eig
+sh  <- round(100 * eig / sum(eig), 1)
+
+ord_plot(ord, axes = 1:2, color = "arm") +
+  stat_ellipse(aes(colour = arm), type = "norm", linewidth = 0.4) +
+  labs(x = sprintf("Axis 1 (%s%% of variation)", sh[1]),
+       y = sprintf("Axis 2 (%s%%)", sh[2]), colour = "Arm")
+```
+
+```{r permanova}
+set.seed(1)
+meta_p <- data.frame(sample_data(ps))[rownames(as.matrix(dm)), ]
+meta_p$arm <- factor(meta_p$arm, levels = c("ring", "pill", "injectable"))
+meta_p$rnaseq_batch <- factor(meta_p$rnaseq_batch)
+meta_p$arm_group <- factor(if_else(meta_p$arm == "ring", "ring", "systemic"),
+                           levels = c("systemic", "ring"))
+
+three_arm <- adonis2(dm ~ arm + rnaseq_batch, data = meta_p,
+                     permutations = 9999, by = "margin")
+two_group <- adonis2(dm ~ arm_group, data = meta_p, permutations = 9999)
+
+pair_perm <- function(a, b) {
+  keep <- meta_p$arm %in% c(a, b)
+  out  <- adonis2(as.dist(as.matrix(dm)[keep, keep]) ~ arm,
+                  data = droplevels(meta_p[keep, ]), permutations = 9999)
+  tibble(comparison = paste(a, "vs", b),
+         `share of variation (%)` = round(100 * out$R2[1], 1),
+         `p (raw)` = out$`Pr(>F)`[1])
+}
+pairwise <- bind_rows(pair_perm("ring", "pill"),
+                      pair_perm("ring", "injectable"),
+                      pair_perm("pill", "injectable")) |>
+  mutate(`p (adjusted, BH)` = p.adjust(`p (raw)`, method = "BH"))
+
+disp_test <- permutest(betadisper(dm, meta_p$arm), permutations = 9999)
+```
+
+```{r permanova-table}
+pa <- as.data.frame(three_arm)
+tibble(
+  test = c("All three arms (adjusted for batch)",
+           "Batch (adjusted for arm)",
+           "Ring vs pooled systemic (the 02 test)"),
+  `share of variation (%)` = round(100 * c(pa["arm", "R2"],
+                                          pa["rnaseq_batch", "R2"],
+                                          two_group$R2[1]), 1),
+  `p-value` = round(c(pa["arm", "Pr(>F)"], pa["rnaseq_batch", "Pr(>F)"],
+                two_group$`Pr(>F)`[1]), 3)
+) |>
+  kable(caption = "PERMANOVA: does the gene profile depend on arm? (9,999 permutations)")
+```
+
+- **All three arms:** `r round(100 * pa["arm", "R2"], 1)` % of variation, p =
+  `r round(pa["arm", "Pr(>F)"], 3)`. Not significant at the usual 0.05 level.
+- **Pooled ring vs systemic:** p = `r round(two_group$'Pr(>F)'[1], 3)`, the 02 result.
+  That is just under 0.05, but it is borderline: with 999 permutations, reruns with
+  other random seeds gave values from 0.03 to 0.055.
+- **Pairwise** (table above): no pair is significant after adjustment. Ring vs injectable
+  is closest (raw p = `r round(pairwise[["p (raw)"]][2], 3)`, adjusted
+  `r round(pairwise[["p (adjusted, BH)"]][2], 3)`).
+- **Dispersion check:** the arms have similar spread (p = `r round(disp_test$tab$"Pr(>F)"[1], 2)`).
+  That matters: PERMANOVA can mistake "more spread" for "shifted", and it does not here.
+
+```{r pairwise-table}
+pairwise |>
+  mutate(`p (raw)` = round(`p (raw)`, 3),
+         `p (adjusted, BH)` = round(`p (adjusted, BH)`, 3)) |>
+  kable(caption = "Each pair of arms compared separately (PERMANOVA, 9,999 permutations)")
+```
+
+## 3.2 Which individual genes differ? (DESeq2, three arms)
+
+We fit one model with all three arms and batch, then ask each pair of arms for its
+own list of genes. This is the only place where the three arms are treated as three.
+
+```{r deseq-three}
+dds <- DESeqDataSetFromMatrix(genes_f, md, design = ~ rnaseq_batch + arm)
+dds <- DESeq(dds, quiet = TRUE)
+
+pair_res <- function(a, b) {
+  as.data.frame(results(dds, contrast = c("arm", a, b))) |>
+    rownames_to_column("ensembl_gene_id") |>
+    left_join(d$gene_info |> select(ensembl_gene_id, symbol), by = "ensembl_gene_id") |>
+    mutate(symbol = coalesce(symbol, ensembl_gene_id),
+           padj   = replace_na(padj, 1))
+}
+ring_pill  <- pair_res("ring", "pill")
+ring_inj   <- pair_res("ring", "injectable")
+pill_inj   <- pair_res("pill", "injectable")
+
+# One test for "does any arm differ?" (likelihood-ratio test, 2 df)
+dds_lrt <- DESeq(DESeqDataSetFromMatrix(genes_f, md, ~ rnaseq_batch + arm),
+                 test = "LRT", reduced = ~ rnaseq_batch, quiet = TRUE)
+any_arm <- as.data.frame(results(dds_lrt)) |>
+  rownames_to_column("ensembl_gene_id") |>
+  mutate(padj = replace_na(padj, 1))
+
+# The 02 document's pooled model, refit for comparison
+dds_pool <- DESeq(DESeqDataSetFromMatrix(genes_f, md, ~ rnaseq_batch + arm_group),
+                  quiet = TRUE)
+pooled <- as.data.frame(results(dds_pool, contrast = c("arm_group", "ring", "systemic"))) |>
+  rownames_to_column("ensembl_gene_id") |>
+  mutate(padj = replace_na(padj, 1))
+```
+
+```{r deseq-table}
+#| fig-cap: "Genes significantly different at FDR < 0.05, for each comparison. The pooled bar is the 02 document's model."
+n_tested <- function(r) sum(!is.na(r$pvalue))
+summary_tbl <- tibble(
+  comparison = c("ring vs pill", "ring vs injectable", "pill vs injectable",
+                 "any arm differs (3-arm test)", "ring vs pooled systemic (02)"),
+  samples = c(sprintf("%d vs %d", sum(md$arm == "ring"), sum(md$arm == "pill")),
+              sprintf("%d vs %d", sum(md$arm == "ring"), sum(md$arm == "injectable")),
+              sprintf("%d vs %d", sum(md$arm == "pill"), sum(md$arm == "injectable")),
+              sprintf("%d", nrow(md)),
+              sprintf("%d vs %d", sum(md$arm == "ring"), sum(md$arm != "ring"))),
+  `genes at FDR < 0.05` = c(sum(ring_pill$padj < 0.05), sum(ring_inj$padj < 0.05),
+                            sum(pill_inj$padj < 0.05), sum(any_arm$padj < 0.05),
+                            sum(pooled$padj < 0.05)),
+  `higher in first named` = c(sum(ring_pill$padj < 0.05 & ring_pill$log2FoldChange > 0),
+                              sum(ring_inj$padj < 0.05 & ring_inj$log2FoldChange > 0),
+                              sum(pill_inj$padj < 0.05 & pill_inj$log2FoldChange > 0),
+                              "–",
+                              sum(pooled$padj < 0.05 & pooled$log2FoldChange > 0)),
+  `raw p < 0.05` = c(sum(ring_pill$pvalue < 0.05, na.rm = TRUE),
+                     sum(ring_inj$pvalue < 0.05, na.rm = TRUE),
+                     sum(pill_inj$pvalue < 0.05, na.rm = TRUE),
+                     sum(any_arm$pvalue < 0.05, na.rm = TRUE),
+                     sum(pooled$pvalue < 0.05, na.rm = TRUE)),
+  `expected by chance` = round(0.05 * c(n_tested(ring_pill), n_tested(ring_inj),
+                                        n_tested(pill_inj), n_tested(any_arm),
+                                        n_tested(pooled)))
+)
+kable(summary_tbl, caption = "DESeq2 results for each comparison (genes tested: about 14,000)")
+```
+
+```{r deseq-bars}
+#| fig-height: 3.2
+#| fig-cap: "Genes at FDR < 0.05. The pooled comparison finds more than either pair alone, because pooling makes the control group bigger."
+summary_tbl |>
+  filter(comparison != "any arm differs (3-arm test)") |>
+  ggplot(aes(reorder(comparison, `genes at FDR < 0.05`), `genes at FDR < 0.05`)) +
+  geom_col(fill = "steelblue") +
+  geom_text(aes(label = `genes at FDR < 0.05`), hjust = -0.2, size = 3.2) +
+  coord_flip(clip = "off") +
+  expand_limits(y = 190) +
+  labs(x = NULL, y = "genes at FDR < 0.05") +
+  theme_minimal(base_size = 10)
+```
+
+The single three-arm test ("any arm differs" row) finds `r sum(any_arm$padj < 0.05)`
+genes that differ between at least two of the arms. That is the broader question,
+answered gene by gene.
+
+## 3.3 Do the pairs agree? Is the systemic pairing justified?
+
+```{r agreement}
+#| fig-width: 5.5
+#| fig-height: 4.4
+#| fig-cap: "Each dot is one gene. If ring differs from both systemic arms in the same way, dots fall near the diagonal line."
+both <- inner_join(
+  ring_pill |> select(ensembl_gene_id, lfc_vs_pill = log2FoldChange),
+  ring_inj  |> select(ensembl_gene_id, lfc_vs_inj  = log2FoldChange),
+  by = "ensembl_gene_id") |>
+  filter(!is.na(lfc_vs_pill), !is.na(lfc_vs_inj))
+r_agree <- round(cor(both$lfc_vs_pill, both$lfc_vs_inj), 2)
+
+ggplot(both, aes(lfc_vs_pill, lfc_vs_inj)) +
+  geom_point(alpha = 0.08, size = 0.6) +
+  geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "firebrick") +
+  coord_cartesian(xlim = c(-4, 4), ylim = c(-4, 4)) +
+  labs(x = "Ring vs pill (log2 fold change)",
+       y = "Ring vs injectable (log2 fold change)",
+       caption = sprintf("Correlation across all genes: r = %s", r_agree))
+```
+
+```{r overlap}
+hits_rp <- ring_pill$ensembl_gene_id[ring_pill$padj < 0.05]
+hits_ri <- ring_inj$ensembl_gene_id[ring_inj$padj < 0.05]
+hits_pi <- pill_inj$ensembl_gene_id[pill_inj$padj < 0.05]
+```
+
+- **Ring is on the same side against both systemic arms** (correlation r = `r r_agree`).
+- **But the gene lists barely overlap:** only `r length(intersect(hits_rp, hits_ri))`
+  genes are significant in both ring-vs-pill and ring-vs-injectable. Significance
+  depends on sample size as well as on the size of the effect, so this is partly a
+  power difference.
+- **Pill vs injectable** has `r length(hits_pi)` genes at FDR < 0.05, and only
+  `r sum(pill_inj$pvalue < 0.05, na.rm = TRUE)` raw p-values below 0.05, against about
+  `r round(0.05 * n_tested(pill_inj))` expected by chance. The two systemic arms look
+  very alike, so pooling them is *supported by the data*. The 02 document was right
+  for roughly the right reason, but did not show the evidence.
+
+## 3.4 Sensitivity: does adjusting for vaginal pH change the answer?
+
+```{r ph-sensitivity}
+md$ph_z <- as.numeric(scale(md$ph))   # pH on a common scale (mean 0, spread 1)
+dds_ph <- DESeq(DESeqDataSetFromMatrix(genes_f, md, ~ rnaseq_batch + ph_z + arm),
+                quiet = TRUE)
+ring_pill_ph <- as.data.frame(results(dds_ph, contrast = c("arm", "ring", "pill")))
+ring_inj_ph  <- as.data.frame(results(dds_ph, contrast = c("arm", "ring", "injectable")))
+
+tibble(
+  comparison = c("ring vs pill", "ring vs injectable"),
+  `genes, batch only` = c(sum(ring_pill$padj < 0.05), sum(ring_inj$padj < 0.05)),
+  `genes, batch + pH` = c(sum(ring_pill_ph$padj < 0.05, na.rm = TRUE),
+                          sum(ring_inj_ph$padj < 0.05, na.rm = TRUE))
+) |>
+  kable(caption = "Genes at FDR < 0.05, with and without a pH adjustment")
+```
+
+```{r ph-plot}
+#| fig-height: 2.8
+#| fig-cap: "Vaginal pH by arm. Pill users have a lower median pH, which is why pH could confound the comparison."
+ggplot(md, aes(arm, ph, fill = arm)) +
+  geom_boxplot(show.legend = FALSE, outlier.alpha = 0.4) +
+  labs(x = NULL, y = "vaginal pH") +
+  theme_minimal(base_size = 10)
+```
+
+Adjusting for pH almost doubles the ring-vs-pill list, while the ring-vs-injectable
+list barely changes. Neither answer is "the" answer until you decide whether pH is a
+confounder (distorting the comparison) or a mediator (part of the effect).
+
+## 3.5 The top genes in each comparison
+
+```{r top-genes}
+top_tbl <- function(r, label) {
+  r |> filter(padj < 0.05) |> slice_min(padj, n = 8) |>
+    transmute(comparison = label, gene = symbol,
+              `log2 fold change` = round(log2FoldChange, 2),
+              FDR = signif(padj, 2))
+}
+bind_rows(top_tbl(ring_pill, "ring vs pill"),
+          top_tbl(ring_inj, "ring vs injectable")) |>
+  mutate(FDR = format.pval(FDR, digits = 2, eps = 1e-300)) |>
+  kable(caption = "Eight smallest-FDR genes in each ring comparison")
+```
+
+Read these with the caveats from section 2 (item 10). Several top genes are keratins,
+mucus and antimicrobial-protein genes (for example KRT1, FLG2, BPIFA1, CEACAM7,
+SERPINA11). Those are typical of the surface tissue itself, so this list may reflect how
+much surface tissue each sample captured rather than a ring effect on a pathway. That
+is the cell-mix check I would do first.
+
+# 4. The statistics, in plain language
+
+| Term | What it means here | Read more |
+|---|---|---|
+| **Gene count table** | How many sequencing reads matched each gene in each person's sample. More reads = more of that gene's messenger RNA. | Workshop notebook `02-count-table-anatomy` |
+| **Filter (≥ 10 reads in ≥ 10 samples)** | Throws away genes that are almost silent, because they add noise and no information. | Same rule as file 02 |
+| **CLR (centred log-ratio)** | Puts every gene on a comparable scale within each sample, so a few very busy genes do not dominate. | [Gloor et al. 2017](https://doi.org/10.3389/fmicb.2017.02224) |
+| **Ordination / PCoA** | A map of the samples where people with similar gene profiles sit close together. The axes are chosen to show the most variation first. | [vegan introduction](https://vegandevs.github.io/vegan/articles/intro-vegan.html) |
+| **PERMANOVA** (`adonis2`) | Asks whether people in different arms are further apart than people in the same arm. It shuffles the arm labels 9,999 times to see how often a result this strong happens by chance. | [Anderson 2001](https://doi.org/10.1111/j.1442-9993.2001.01070.pp.x) |
+| **Share of variation (R²)** | The percentage of all the difference between people that the arm explains. Small percentages are normal for biology. | Same as PERMANOVA |
+| **Dispersion check** (`betadisper`) | Asks whether one arm is simply more spread out. If so, PERMANOVA can give a false "difference". | [vegan betadisper](https://vegandevs.github.io/vegan/reference/betadisper.html) |
+| **DESeq2** | For each gene, fits a model of its counts (a count model with extra spread, called "negative binomial") and tests whether the arm changes it. It uses the raw counts because it does its own scaling. | [Love et al. 2014](https://doi.org/10.1186/s13059-014-0550-8); [DESeq2 vignette](https://bioconductor.org/packages/release/bioc/vignettes/DESeq2/inst/doc/DESeq2.html) |
+| **Batch covariate** | A term that accounts for samples processed in two sequencing batches, so batch differences are not mistaken for arm differences. | Same as DESeq2 |
+| **Log2 fold change** | How much the gene changes. +1 means about twice as much in the first group; −1 means half. | Same as DESeq2 |
+| **p-value** | The chance of a result this extreme if there were really no difference. | |
+| **FDR (false discovery rate)** | With 14,000 genes, some will look significant by luck. FDR controls the share of "significant" genes that are wrong. FDR < 0.05 means that, on average, at most about 1 in 20 genes on the list is a false alarm. | [Benjamini & Hochberg 1995](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x) |
+| **Likelihood-ratio test (LRT)** | Compares a model with arm against one without arm, to ask "does arm matter at all?" in a single test. | Same as DESeq2 |
+| **Expected by chance** | With 14,000 genes at p < 0.05, about 5 % (about 700) will pass by luck alone. | |
+
+# 5. What I would do differently
+
+1. **Decide the question before looking.** Write "the primary question is ring vs
+   the other two methods, pooled, because pill and injectable look alike" in the
+   plan, and test that pooling with pill vs injectable.
+2. **Use all three arms first.** Run the 3-arm PERMANOVA and the 3-arm LRT with batch
+   in the same model. Only then go to the pairwise tests.
+3. **Report all three pairs,** with FDR adjusted across the full family of tests,
+   and say so in the methods.
+4. **Make pH a planned sensitivity analysis,** reported next to the main result, with
+   an explicit reason for including or excluding it.
+5. **Check technical signals** (RNA quality, cell-type markers) before interpreting
+   the widespread small shift.
+6. **Shrink the fold changes** and report effect sizes with uncertainty, not just hit
+   counts.
+7. **Change the verdict language:** "suggestive, needs replication" instead of
+   "small but real".
+
+A sketch of step 2 in code (the same ideas as above):
+
+```r
+# All three arms in one model, batch included
+dds <- DESeq(DESeqDataSetFromMatrix(genes, md, ~ rnaseq_batch + arm))
+
+# Does any arm differ? One test, two degrees of freedom
+dds_lrt <- DESeq(dds, test = "LRT", reduced = ~ rnaseq_batch)
+
+# Then each pair, one at a time
+results(dds, contrast = c("arm", "ring", "pill"))
+```
+
+**Check it yourself:** the arm counts should be ring 26, pill 28, injectable 39.
+The number of genes at FDR < 0.05 for ring vs injectable is printed in the table
+above; `sum(results(dds, contrast = c("arm","ring","injectable"))$padj < 0.05, na.rm = TRUE)`
+should give the same number. For PERMANOVA, change `set.seed(1)` to another number
+and rerun. With 9,999 permutations the p-values should barely move (a few thousandths).
+If you use 999 permutations, the pooled test can swing across 0.05, as in section 2,
+item 4. A result that moves across 0.05 when you change a random number is not a firm
+result.
+
+# 6. Bottom line
+
+- The gene profile of the **ring is somewhat different** from the other two methods,
+  but the overall arm effect is **not statistically clear** across all three arms.
+- **Pill and injectable look alike** in this data, so pooling them is reasonable,
+  but it should be tested, not eyeballed.
+- The **size of the ring effect depends on the comparison** and on pH. Treat it as a
+  lead to follow up, not a finding.
+- Next steps: check technical signals, replicate in another dataset, and use the
+  cytokine and microbiome data to see whether the gene differences have a
+  biological story.
+
+## Choices made
+
+- **Used 9,999 permutations for PERMANOVA** — the alternative was 999 (the 02 document's setting), which gave p-values that moved across 0.05 between seeds.
+- **Used all three arms in one DESeq2 model** (`~ batch + arm`) — the alternative was the 02 document's pooled model.
+- **Ran a single 3-arm likelihood-ratio test first, then pairwise contrasts** — the alternative was going straight to pairwise tests with no overall test.
+- **Ran PERMANOVA with batch and arm in one model, `by = "margin"`** — the alternative was the default sequential test, which gives the first term priority.
+- **Adjusted the three pairwise PERMANOVA p-values with BH** — the alternative was Bonferroni (stricter).
+- **Checked spread with `betadisper` before trusting PERMANOVA** — the alternative was to skip it.
+- **Kept the same gene filter as file 02** (≥ 10 reads in ≥ 10 samples) — the alternative was a stricter filter that loses power.
+- **Treated pH as a sensitivity covariate, z-scored, not in the main model** — the alternative was adjusting for it in the main model, which assumes pH is not a result of the ring.
+- **Reported FDR per comparison** — the alternative was one FDR across all comparisons, which is stricter.
+- **Kept fold changes unshrunk** — the alternative is `lfcShrink()` with `ashr`, not installed here.
+- **Dropped no samples** (`B093` kept, as in file 02) — the alternative is a sensitivity analysis without it, which 02 already did for the pooled model.
+- **Rendered the PDF with Typst** rather than LaTeX, because LaTeX is not installed in this Codespace.

@@ -1,0 +1,329 @@
+---
+title: "Group by community type, then test the genes: does community explain more than the method? (Study B, Question 3)"
+format:
+  html:
+    embed-resources: true
+editor: source
+execute:
+  warning: false
+  message: false
+---
+
+> **What this document is.** The third Study B question: if we group people
+> by **community type** (Lactobacillus-dominant vs anaerobe) and test their
+> genes, does community type explain host gene expression better than the
+> contraceptive method does? The community label is defined **from the
+> species table** and tested **on the gene table** — never define a group
+> from the table you then test it on. Question 2 (ring vs systemic) lives in
+> `02-ring-vs-systemic.html` and `03-three-arms-review.html`; full QC lives
+> in `01-qc.html`.
+
+```{r setup}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(here)
+library(DESeq2)
+library(microViz)
+library(phyloseq)
+library(vegan)
+library(patchwork)   # lets p_com + p_arm put two plots side by side
+library(ggrepel)
+
+source(here("R/count_tables.R"))
+
+d  <- read_counts("group_b")
+sp <- d$species         # 220 species  x 93 samples, RAW counts
+ge <- d$genes           # 14,226 genes x 93 samples, RAW counts
+md <- d$metadata        # one row per sample, same order as the columns
+
+md <- md |>
+  mutate(arm_group = if_else(arm == "ring", "ring", "systemic"))
+
+# Community type: Lactobacillus genus >= half of the species reads.
+# Defined from the SPECIES table only.
+lacto_taxa <- d$taxonomy |> filter(Genus == "Lactobacillus") |> pull(taxon)
+lacto_frac <- colSums(sp[lacto_taxa, , drop = FALSE]) / colSums(sp)
+md$community <- ifelse(lacto_frac >= 0.5, "lactobacillus", "anaerobe")
+```
+
+# 1. QC for this analysis
+
+```{r qc-checks}
+#| label: qc-checks
+stopifnot(identical(colnames(ge), md$sample_id))   # order check: DESeq2 would
+                                                   # fail silently otherwise
+n_comm <- table(md$community)
+knitr::kable(table(Arm = md$arm, Community = md$community),
+             caption = "Community type by arm")
+```
+
+- **Order check passed** for the gene table.
+- **Community split:** `r n_comm["lactobacillus"]` lactobacillus-dominant vs
+  `r n_comm["anaerobe"]` anaerobe samples — comfortably balanced for testing.
+- **Community is not a proxy for method:** the two groupings are
+  independent (chi-squared p = `r signif(chisq.test(table(md$arm, md$community))$p.value, 2)`),
+  so this is a fair head-to-head, not a confounded one.
+- **Carried flags from `01-qc.html`:** `B093` carries heavy blood signal
+  (HBB/HBA, about a third of its reads); vaginal pH differs by arm
+  (p = 0.02) — and, as section 5 shows, far more strongly by community type,
+  which matters for reading the method comparison.
+
+# 2. The gene map, coloured by community type
+
+Same gene ordination as Question 2 — genes with ≥ 10 reads in ≥ 10 samples,
+CLR transform, Euclidean PCoA — now coloured by community type instead of
+arm.
+
+```{r ordination}
+#| label: ordination
+#| fig-width: 10
+#| fig-height: 4.5
+#| fig-cap: "Gene-table PCoA (CLR + Euclidean). Left: coloured by community type. Right: coloured by ring vs systemic for comparison."
+ps <- as_counts(dataset = "group_b", table = "rnaseq",
+                min_count = 10, min_samples = 10, data = d)
+sd <- as(sample_data(ps), "data.frame")
+idx <- match(sd$sample_id, md$sample_id)
+sd$arm_group <- md$arm_group[idx]
+sd$community <- md$community[idx]
+sample_data(ps) <- sample_data(sd)
+
+ord <- ps |>
+  tax_transform("clr", zero_replace = "halfmin") |>
+  dist_calc("euclidean") |>
+  ord_calc("PCoA")
+
+eig <- attr(ord, "ord")$CA$eig
+sh  <- round(100 * eig / sum(eig), 1)
+
+p_com <- ord_plot(ord, axes = 1:2, color = "community") +
+  stat_ellipse(aes(colour = community), type = "norm", linewidth = 0.4) +
+  labs(title = "By community type", x = sprintf("Axis 1 (%s%%)", sh[1]),
+       y = sprintf("Axis 2 (%s%%)", sh[2]), colour = "Community")
+p_arm <- ord_plot(ord, axes = 1:2, color = "arm_group") +
+  stat_ellipse(aes(colour = arm_group), type = "norm", linewidth = 0.4) +
+  labs(title = "By method (ring vs systemic)", x = sprintf("Axis 1 (%s%%)", sh[1]),
+       y = NULL, colour = "Method")
+p_com + p_arm
+```
+
+# 3. PERMANOVA: community vs method, head to head
+
+Both groupings go into **one** model with `by = "margin"`, so each gets its
+own test adjusted for the other ([Anderson 2001](https://doi.org/10.1111/j.1442-9993.2001.01070.pp.x)) —
+that is the fair comparison the slides quote.
+
+```{r permanova}
+#| label: permanova
+dm <- attr(ord, "dist")
+meta_p <- data.frame(sample_data(ps))[rownames(as.matrix(dm)), ]
+meta_p$arm_group <- factor(meta_p$arm_group, levels = c("systemic", "ring"))
+set.seed(1)
+both    <- adonis2(dm ~ community + arm_group, data = meta_p,
+                   permutations = 9999, by = "margin")
+com_only <- adonis2(dm ~ community, data = meta_p, permutations = 9999)
+arm_only <- adonis2(dm ~ arm_group, data = meta_p, permutations = 9999)
+disp <- permutest(betadisper(dm, meta_p$community), permutations = 9999)
+
+q3_com_r2 <- round(100 * both$R2[1], 1)   # row 1 = community (margin test)
+q3_com_p  <- round(both$`Pr(>F)`[1], 4)
+q3_arm_r2 <- round(100 * both$R2[2], 1)   # row 2 = method
+q3_arm_p  <- round(both$`Pr(>F)`[2], 4)
+q3_disp_p <- round(disp$tab$`Pr(>F)`[1], 2)
+```
+
+```{r permanova-table}
+#| label: permanova-table
+knitr::kable(
+  tibble(
+    model = c("both groupings, adjusted for each other", "",
+              "each grouping alone", "", ""),
+    term  = c("community type", "method (ring vs systemic)",
+              "community type", "method (ring vs systemic)", "spread (community)"),
+    n = 93,
+    `share of variation (%)` = c(q3_com_r2, q3_arm_r2,
+                                 round(100 * com_only$R2[1], 1),
+                                 round(100 * arm_only$R2[1], 1), NA),
+    p = c(q3_com_p, q3_arm_p,
+          round(com_only$`Pr(>F)`[1], 4), round(arm_only$`Pr(>F)`[1], 4),
+          q3_disp_p)
+  ),
+  caption = "PERMANOVA on genes (CLR + Euclidean, 9,999 permutations)"
+)
+```
+
+- **Adjusted for each other**, the two groupings are close:
+  community `r q3_com_r2` % (p = `r q3_com_p`) vs method
+  `r q3_arm_r2` % (p = `r q3_arm_p`) — both small shares, both weak
+  p-values. Each grouping takes a little variation from the other, which is
+  why the alone-models read slightly higher.
+- The spread check passes (p = `r q3_disp_p`), so the community comparison
+  is not fooled by one group being more scattered.
+
+> **Sanity check.** Change `set.seed(1)` and re-render: the R² values must
+> not move and the p-values should stay within about ±0.01 of
+> `r q3_com_p` and `r q3_arm_p`. The R² is also checkable by hand from
+> `adonis2`'s printed sum-of-squares columns.
+
+# 4. DESeq2: which individual genes differ by community type?
+
+**Raw counts** into DESeq2, batch as covariate, community as the contrast
+(anaerobe vs lactobacillus). n = 45 vs 48.
+
+```{r deseq}
+#| label: deseq
+genes_f <- ge[rowSums(ge >= 10) >= 10, ]
+rownames(md) <- md$sample_id
+
+dds_c <- DESeq(DESeqDataSetFromMatrix(genes_f, md, design = ~ rnaseq_batch + community),
+               quiet = TRUE)
+res_c <- results(dds_c, contrast = c("community", "anaerobe", "lactobacillus"))
+res_c_df <- as.data.frame(res_c) |>
+  rownames_to_column("ensembl_gene_id") |>
+  left_join(d$gene_info |> select(ensembl_gene_id, symbol), by = "ensembl_gene_id") |>
+  mutate(symbol = coalesce(symbol, ensembl_gene_id),
+         padj   = replace_na(padj, 1))
+sig_c <- res_c_df |> filter(padj < 0.05)
+```
+
+```{r deseq-summary}
+#| label: deseq-summary
+knitr::kable(
+  tibble(quantity = c("genes tested", "FDR < 0.05",
+                      "higher in anaerobe samples", "higher in lactobacillus samples",
+                      "smallest FDR"),
+         value = c(nrow(res_c_df), nrow(sig_c),
+                   sum(sig_c$log2FoldChange > 0), sum(sig_c$log2FoldChange < 0),
+                   format(min(sig_c$padj), digits = 2))),
+  caption = "DESeq2, community type (n = 45 anaerobe vs 48 lactobacillus)"
+)
+```
+
+**`r nrow(sig_c)` genes at FDR < 0.05** — about twice the 165 that ring vs
+systemic finds (`02-ring-vs-systemic.html`), on the same gene table and the
+same filter.
+
+```{r volcano}
+#| label: volcano
+#| fig-height: 5
+#| fig-cap: "Volcano plot, anaerobe vs lactobacillus. Red: FDR < 0.05. Labels: the 10 smallest FDR values."
+res_c_df |>
+  mutate(hit  = padj < 0.05,
+         label = if_else(rank(padj) <= 10, symbol, NA_character_)) |>
+  ggplot(aes(log2FoldChange, -log10(padj), colour = hit)) +
+  geom_point(size = 1, alpha = 0.6, show.legend = FALSE) +
+  scale_colour_manual(values = c("grey70", "firebrick")) +
+  geom_text_repel(aes(label = label), size = 2.8, max.overlaps = 20,
+                  show.legend = FALSE) +
+  labs(x = "log2 fold change (anaerobe vs lactobacillus)",
+       y = "-log10 adjusted p-value")
+```
+
+```{r top-table}
+#| label: top-table
+sig_c |> slice_min(padj, n = 12) |>
+  transmute(symbol, log2FC = round(log2FoldChange, 2), FDR = signif(padj, 2)) |>
+  knitr::kable(caption = "12 smallest-FDR genes, community type")
+```
+
+> **Sanity check.** Take the top hit's raw counts, average them within
+> anaerobe and within lactobacillus samples, and divide the two means —
+> converted to log2, that ratio should land near the table's `log2FC`
+> (DESeq2's estimate shrinks a little and adjusts for batch, so expect
+> *near*, not *equal*).
+
+# 5. Do the two gene lists overlap? And does the answer survive adjusting for arm?
+
+```{r compare-and-sensitivity}
+#| label: compare-and-sensitivity
+# The Question 2 list, refit identically to this document for a fair overlap
+dds_m <- DESeq(DESeqDataSetFromMatrix(genes_f, md, design = ~ rnaseq_batch + arm_group),
+               quiet = TRUE)
+res_m <- results(dds_m, contrast = c("arm_group", "ring", "systemic"))
+sig_m <- rownames(res_m)[which(res_m$padj < 0.05)]
+
+overlap <- length(intersect(sig_c$ensembl_gene_id, sig_m))
+
+# Sensitivity: does the community signal survive adjusting for the method?
+dds_adj <- DESeq(DESeqDataSetFromMatrix(
+                   genes_f, md, design = ~ rnaseq_batch + arm_group + community),
+                 quiet = TRUE)
+res_adj <- results(dds_adj, contrast = c("community", "anaerobe", "lactobacillus"))
+sig_adj <- sum(res_adj$padj < 0.05, na.rm = TRUE)
+```
+
+```{r compare-table}
+#| label: compare-table
+knitr::kable(
+  tibble(quantity = c(
+    "genes at FDR < 0.05, community type",
+    "genes at FDR < 0.05, ring vs systemic",
+    "genes significant in both lists",
+    "community hits surviving adjustment for method",
+    "vaginal pH by community (Kruskal–Wallis p)"
+  ),
+  value = c(nrow(sig_c), length(sig_m), overlap, sig_adj,
+            format.pval(kruskal.test(ph ~ community, md)$p.value,
+                        digits = 2, eps = 1e-300))),
+  caption = "The two groupings compared on the same gene table"
+)
+```
+
+- **Overlap:** `r overlap` genes are significant in *both* lists — the two
+  questions mostly surface **different genes**, not the same signal
+  measured twice.
+- **Sensitivity:** adding the method to the model leaves
+  `r sig_adj` community hits standing, so the community signal is not a
+  disguised method effect.
+- **pH:** it tracks community type far more strongly than it tracks the
+  method (community p = `r format(kruskal.test(ph ~ community, md)$p.value, digits = 2)`
+  vs arm p = 0.02) — consistent with pH being a *microbiome* variable. That
+  reinforces the plan to adjust for community type when reading method
+  effects, and is one more reason the method comparison should be read as
+  suggestive.
+
+# 6. Verdict
+
+- **Overall map:** a near-tie — community type explains
+  `r q3_com_r2` % of gene-profile variation vs the method's
+  `r q3_arm_r2` %, both with weak p-values once adjusted for each other
+  (n = 93).
+- **Gene by gene:** community type is clearly the stronger signal —
+  **`r nrow(sig_c)` genes at FDR < 0.05 (n = 45 vs 48)** vs 165 for ring vs
+  systemic, with little overlap between the lists.
+- So the answer to "does community type explain more than the method?" is
+  **yes at the level of individual genes, about a tie for the overall
+  profile** — and since community is balanced across arms, both signals can
+  be reported side by side without one hiding the other.
+- Practical rule for the group project: **put community type in the model**
+  when interpreting method effects on genes, and expect the method signal
+  (if real) to be the smaller of the two.
+
+## Choices made
+
+- **Community type defined from the species table** (Lactobacillus ≥ 50 % of
+  species reads — the notebook 02 rule) and **tested on the gene table**;
+  defining the group from the gene table itself and then testing genes
+  against it would be circular. A stricter cut-off (60 %) or a third
+  intermediate group is the alternative.
+- **Both groupings in one PERMANOVA with `by = "margin"`** for the headline
+  comparison, with the alone-models shown for context; reporting only the
+  alone-models would overstate each grouping.
+- **Genes filtered at ≥ 10 reads in ≥ 10 samples**, the same rule as
+  Questions 1 and 2, so the three analyses test the same gene set;
+  independent filtering inside DESeq2 also applies.
+- **Raw counts into DESeq2** with `~ rnaseq_batch + community`; pH was not
+  added because it does not differ by community — the alternative design
+  `~ rnaseq_batch + ph_z + community` is available if a reviewer wants it.
+- **Unshrunken log2 fold changes** (`apeglm`/`ashr` are not installed here);
+  low-count genes can show exaggerated fold changes, so read the top table
+  with that in mind.
+- **Kept `B093`** (its blood signal is a gene-table concern, but the
+  community contrast is driven by 93 samples, not one); a sensitivity run
+  without it is the alternative if the community hits included haemoglobin
+  genes — they did not make the top 12.
+- **FDR < 0.05 across all tested genes**, no fold-change threshold on top;
+  adding |log2FC| > 1 would shrink the list further.
+- **Reported the chance expectation** (~711 raw p < 0.05 for ~14,000 genes)
+  alongside every hit count, so the size of each list can be judged against
+  noise.

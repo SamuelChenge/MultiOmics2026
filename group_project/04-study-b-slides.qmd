@@ -1,0 +1,488 @@
+---
+title: "Do hormonal contraceptives differ in their effect?"
+subtitle: "Study B — three methods, 93 people, genes and microbiome"
+author: "Group B1–B5"
+format:
+  html:
+    embed-resources: true
+  pptx:
+    reference-aspect-ratio: "16:9"
+editor: source
+execute:
+  warning: false
+  message: false
+---
+
+> **What this deck is.** One presentation answering the three Study B
+> questions — do the three methods differ in community composition, does the
+> ring differ from the two systemic methods in host gene expression, and does
+> community type explain the genes better than the method does. The full
+> workings live in the workshop documents — `01-qc.html` (QC),
+> `02-ring-vs-systemic.html` and `03-three-arms-review.html` (Question 2),
+> `05-q1-three-arms-composition.html` (Question 1) and
+> `06-q3-community-vs-method.html` (Question 3); this deck recomputes the
+> headline numbers from the data so every slide can be traced. Because
+> PowerPoint wants small numbers of things, each slide carries only the
+> headline figure plus the sample sizes it is based on.
+
+```{r setup}
+#| label: setup
+#| include: false
+library(tidyverse)
+library(here)
+library(DESeq2)
+library(microViz)
+library(phyloseq)
+library(vegan)
+library(ggrepel)
+
+source(here("R/count_tables.R"))
+
+d  <- read_counts("group_b")
+sp <- d$species          # 220 species  x 93 samples, raw counts
+ge <- d$genes            # 14,226 genes x 93 samples, raw counts
+md <- d$metadata         # one row per sample
+
+md <- md |>
+  mutate(arm_group = if_else(arm == "ring", "ring", "systemic"))
+
+# Community type, same rule as 01-qc and notebook 02:
+# Lactobacillus genus >= half of the sample's species reads.
+lacto_taxa <- d$taxonomy |> filter(Genus == "Lactobacillus") |> pull(taxon)
+lacto_frac <- colSums(sp[lacto_taxa, , drop = FALSE]) / colSums(sp)
+md$community <- ifelse(lacto_frac >= 0.5, "lactobacillus", "anaerobe")
+
+n_arm  <- table(md$arm)          # pill 28, injectable 39, ring 26
+n_comm <- table(md$community)    # lactobacillus 48, anaerobe 45
+```
+
+# Study B in one slide
+
+## Who, what, how many
+
+- **93 participants**, one vaginal swab each, **one visit** — no time course.
+- Each person used one of three hormonal contraceptives **they chose
+  themselves** (this is not a randomised trial):
+
+| Method | Samples |
+|---|---|
+| Pill | 28 |
+| Injectable | 39 |
+| Vaginal ring | 26 |
+
+- Two sequencing tables for the same 93 samples, features in rows:
+  **species** (220 species × 93 samples) and **host genes**
+  (14,226 genes × 93 samples), plus 15 cytokines.
+- Question for the week: **do the methods differ in their effect?**
+  We answer it three ways — on the microbiome, on the genes, and by asking
+  whether "community type" explains the genes better than the method does.
+
+## Before any result: what the arms might differ in *besides* the method
+
+**No randomisation. People chose their method.** So any difference between
+arms could be the method, or something else that tracks the choice.
+
+We checked the baseline variables (`01-qc.html`):
+
+| Baseline variable | Different across arms? |
+|---|---|
+| Bacterial vaginosis | no (Fisher p = 0.63) |
+| Any STI | no |
+| Nugent score | no (p = 0.65) |
+| Sequencing batch | no — every arm in both batches |
+| **Vaginal pH** | **yes (Kruskal–Wallis p = 0.02)** |
+
+- **The one real imbalance: vaginal pH.** Median 4.55 in the pill arm vs 5.0
+  in ring and injectable; the ring arm has no sample below pH 4.4.
+- pH tracks both hormones and the vaginal microbiome, so it may be a
+  *confounder* (distorting a method comparison) or on the *causal path*
+  (part of the method's effect). We show the unadjusted answer and note
+  where pH changes it (Question 3 of `03-three-arms-review.html`).
+- Everything we present is an **association in a self-chosen comparison**,
+  not a trial effect.
+
+## Power: who is compared with whom
+
+Every comparison in this deck, with the samples it is built on:
+
+| Comparison | n | Note |
+|---|---|---|
+| All three arms | 93 | 28 pill / 39 injectable / 26 ring |
+| ring vs pooled systemic | 26 vs 67 | the pooled control is **58 % injectable** |
+| ring vs pill | 26 vs 28 | most even ring comparison |
+| ring vs injectable | 26 vs 39 | most powerful ring comparison |
+| pill vs injectable | 28 vs 39 | the pooling check |
+| community type (2 groups) | 93 | 48 lactobacillus / 45 anaerobe |
+
+- The ring arm is the smallest, so **ring comparisons have the least power**;
+  a bigger arm finds more "significant" genes for the same true effect.
+- With 26–39 per group, only **large gene-expression differences** reach
+  FDR < 0.05; small shifts land in the "suggestive" pile.
+
+# Question 1 — do the three methods differ in community composition?
+
+## Q1: the microbiome map, three arms (n = 93)
+
+```{r q1-ordination}
+#| label: q1-ordination
+#| fig-width: 9
+#| fig-height: 4.4
+#| fig-cap: "Species-table PCoA (CLR + Euclidean) coloured by arm."
+ps_sp <- as_counts(dataset = "group_b", table = "microbiome", data = d)
+sd <- as(sample_data(ps_sp), "data.frame")
+sd$arm <- md$arm[match(sd$sample_id, md$sample_id)]
+sample_data(ps_sp) <- sample_data(sd)
+
+ord_sp <- ps_sp |>
+  tax_transform("clr", zero_replace = "halfmin") |>
+  dist_calc("euclidean") |>
+  ord_calc("PCoA")
+
+eig <- attr(ord_sp, "ord")$CA$eig
+sh  <- round(100 * eig / sum(eig), 1)
+
+ord_plot(ord_sp, axes = 1:2, color = "arm") +
+  stat_ellipse(aes(colour = arm), type = "norm", linewidth = 0.4) +
+  labs(x = sprintf("Axis 1 (%s%% of variation)", sh[1]),
+       y = sprintf("Axis 2 (%s%%)", sh[2]), colour = "Arm")
+```
+
+```{r q1-permanova}
+#| label: q1-permanova
+dm_sp <- attr(ord_sp, "dist")
+meta_sp <- data.frame(sample_data(ps_sp))[rownames(as.matrix(dm_sp)), ]
+meta_sp$arm <- factor(meta_sp$arm, levels = c("ring", "pill", "injectable"))
+set.seed(1)
+# Same model as 05-q1-three-arms-composition.html: batch in, margin test.
+q1_main <- adonis2(dm_sp ~ arm + rnaseq_batch, data = meta_sp,
+                   permutations = 9999, by = "margin")
+q1_r2 <- round(100 * q1_main$R2[1], 1)
+q1_p  <- round(q1_main$`Pr(>F)`[1], 3)
+
+pair_sp <- function(a, b) {
+  keep <- meta_sp$arm %in% c(a, b)
+  out  <- adonis2(as.dist(as.matrix(dm_sp)[keep, keep]) ~ arm,
+                  data = droplevels(meta_sp[keep, ]), permutations = 9999)
+  tibble(comparison = paste(a, "vs", b),
+         n = sum(keep),
+         `share of variation (%)` = round(100 * out$R2[1], 1),
+         `p (raw)` = out$`Pr(>F)`[1])
+}
+q1_pairs <- bind_rows(pair_sp("ring", "pill"),
+                      pair_sp("ring", "injectable"),
+                      pair_sp("pill", "injectable")) |>
+  mutate(`p (adjusted, BH)` = p.adjust(`p (raw)`, "BH"))
+
+knitr::kable(
+  tibble(comparison = "all three arms", n = nrow(md),
+         `share of variation (%)` = round(100 * q1_main$R2[1], 1),
+         `p (raw)` = q1_main$`Pr(>F)`[1]),
+  caption = "PERMANOVA on species (CLR + Euclidean, adjusted for batch, 9,999 permutations)"
+)
+```
+
+## Q1: the three methods do **not** carve the microbiome into three
+
+```{r q1-pairs}
+#| label: q1-pairs
+knitr::kable(q1_pairs,
+  caption = "Pairwise PERMANOVA on species (9,999 permutations)")
+```
+
+- **Answer: no clear three-way difference.** The main test puts
+  `r q1_r2` % of the species-level variation on the method (p = `r q1_p`,
+  93 samples) — not significant.
+- No pairwise comparison survives adjustment either. If the ring really
+  reshaped the community differently from the systemic methods, we cannot
+  see it here at this sample size.
+- What *does* structure this map is **community type**
+  (lactobacillus vs anaerobe, axis 1 holds 36 % — `01-qc.html`). That is the
+  split Question 3 follows up.
+- No individual species stands out either: **DESeq2 on raw species counts**
+  gives hit counts at chance level in every comparison
+  (`05-q1-three-arms-composition.html`).
+- **Sanity check:** rerun `q1-permanova` with a different `set.seed` — the
+  R² stays the same and the p-value should stay near `r q1_p`.
+
+# Question 2 — the ring is local, the others are systemic: do the genes differ?
+
+## Q2: first ordinate the genes, all three arms (n = 93)
+
+```{r q2-ordination}
+#| label: q2-ordination
+#| fig-width: 9
+#| fig-height: 4.4
+#| fig-cap: "Gene-table PCoA (CLR + Euclidean, genes filtered at >=10 reads in >=10 samples) coloured by arm."
+ps_genes <- as_counts(dataset = "group_b", table = "rnaseq",
+                      min_count = 10, min_samples = 10, data = d)
+sdg <- as(sample_data(ps_genes), "data.frame")
+idx <- match(sdg$sample_id, md$sample_id)
+sdg$arm       <- md$arm[idx]
+sdg$arm_group <- md$arm_group[idx]
+sdg$community <- md$community[idx]
+sample_data(ps_genes) <- sample_data(sdg)
+
+ord_g <- ps_genes |>
+  tax_transform("clr", zero_replace = "halfmin") |>
+  dist_calc("euclidean") |>
+  ord_calc("PCoA")
+
+eig_g <- attr(ord_g, "ord")$CA$eig
+sh_g  <- round(100 * eig_g / sum(eig_g), 1)
+
+ord_plot(ord_g, axes = 1:2, color = "arm") +
+  stat_ellipse(aes(colour = arm), type = "norm", linewidth = 0.4) +
+  labs(x = sprintf("Axis 1 (%s%% of variation)", sh_g[1]),
+       y = sprintf("Axis 2 (%s%%)", sh_g[2]), colour = "Arm")
+```
+
+```{r q2-permanova}
+#| label: q2-permanova
+dm_g <- attr(ord_g, "dist")
+meta_g <- data.frame(sample_data(ps_genes))[rownames(as.matrix(dm_g)), ]
+meta_g$arm       <- factor(meta_g$arm,       levels = c("ring", "pill", "injectable"))
+meta_g$arm_group <- factor(meta_g$arm_group, levels = c("systemic", "ring"))
+set.seed(1)
+q2_three <- adonis2(dm_g ~ arm + rnaseq_batch, data = meta_g,
+                    permutations = 9999, by = "margin")
+q2_pooled <- adonis2(dm_g ~ arm_group, data = meta_g, permutations = 9999)
+disp_g <- permutest(betadisper(dm_g, meta_g$arm), permutations = 9999)
+q2_arm_r2   <- round(100 * q2_three$R2[1], 1)   # row 1 = arm (margin test)
+q2_arm_p    <- round(q2_three$`Pr(>F)`[1], 3)
+q2_pool_r2  <- round(100 * q2_pooled$R2[1], 1)
+q2_pool_p   <- round(q2_pooled$`Pr(>F)`[1], 3)
+q2_disp_p   <- round(disp_g$tab$`Pr(>F)`[1], 2)
+```
+
+The arms overlap heavily on the map. The formal tests (9,999 permutations,
+93 samples):
+
+| Test | Share of variation | p |
+|---|---|---|
+| arm (adjusted for batch) | `r q2_arm_r2` % | `r q2_arm_p` |
+| ring vs pooled systemic | `r q2_pool_r2` % | `r q2_pool_p` |
+| spread check (betadisper) | — | `r q2_disp_p` |
+
+- The pooled test's p sits **on the 0.05 line** (reruns with other seeds gave
+  0.03–0.055) — call it *suggestive*, not established.
+- The spread check says one arm is not just more scattered, which would fake
+  a PERMANOVA difference.
+
+## Q2: DESeq2 — ring vs pooled systemic (n = 26 vs 67)
+
+```{r q2-deseq2}
+#| label: q2-deseq2
+genes_f <- ge[rowSums(ge >= 10) >= 10, ]   # raw counts into DESeq2, always
+rownames(md) <- md$sample_id
+
+dds <- DESeq(DESeqDataSetFromMatrix(genes_f, md, design = ~ rnaseq_batch + arm_group),
+             quiet = TRUE)
+res <- results(dds, contrast = c("arm_group", "ring", "systemic"))
+res_df <- as.data.frame(res) |>
+  rownames_to_column("ensembl_gene_id") |>
+  left_join(d$gene_info |> select(ensembl_gene_id, symbol),
+            by = "ensembl_gene_id") |>
+  mutate(symbol = coalesce(symbol, ensembl_gene_id),
+         padj   = replace_na(padj, 1))
+sig <- res_df |> filter(padj < 0.05)
+```
+
+- **`r nrow(sig)` genes at FDR < 0.05** (`r sum(sig$log2FoldChange > 0)` up
+  in ring, `r sum(sig$log2FoldChange < 0)` down) out of `r nrow(res_df)`
+  tested. Smallest FDR `r format(min(sig$padj), digits = 2)`.
+- Dropping the blood-contaminated sample `B093` leaves
+  **152 of 165 hits standing (92 %)** — the list does not hinge on one
+  sample (`02-ring-vs-systemic.html`).
+- Caveat from `03-three-arms-review.html`: the raw-p hit lists are about
+  twice what chance alone gives, and several top hits are keratins and mucus
+  genes — the signal may partly be **cell mix** (how much surface tissue each
+  swab caught), not the ring.
+
+```{r q2-volcano}
+#| label: q2-volcano
+#| fig-width: 9
+#| fig-height: 4.6
+#| fig-cap: "Volcano plot, ring vs systemic. Red: FDR < 0.05; labels: 10 smallest FDR."
+res_df |>
+  mutate(hit  = padj < 0.05,
+         label = if_else(rank(padj) <= 10, symbol, NA_character_)) |>
+  ggplot(aes(log2FoldChange, -log10(padj), colour = hit)) +
+  geom_point(size = 1, alpha = 0.6, show.legend = FALSE) +
+  scale_colour_manual(values = c("grey70", "firebrick")) +
+  geom_text_repel(aes(label = label), size = 2.8, max.overlaps = 20,
+                  show.legend = FALSE) +
+  labs(x = "log2 fold change (ring vs systemic)",
+       y = "-log10 adjusted p-value")
+```
+
+## Is pooling pill + injectable fair? (n = 28 vs 39)
+
+```{r pooling-table}
+#| label: pooling-table
+knitr::kable(
+  tribble(
+    ~evidence, ~result,
+    "pill vs injectable, DESeq2 genes at FDR < 0.05", "11 (chance would give ~5–7)",
+    "pill vs injectable, raw p < 0.05", "738 vs ~711 expected by chance",
+    "pill vs injectable, PERMANOVA (genes)", "1.4 %, p = 0.54",
+    "ring LFC vs pill vs ring LFC vs injectable (all genes)", "r = 0.71, same direction",
+  ),
+  caption = "Evidence that the two systemic methods behave alike (from 03-three-arms-review.html)"
+)
+```
+
+- **Why it is fair:** the two systemic arms are near-indistinguishable in the
+  genes — 11 hits where chance predicts about 7, PERMANOVA p = 0.54, and the
+  ring's log2 fold changes point the **same way against both** (r = 0.71).
+- **Two caveats:** the pooled control is 58 % injectable, so "systemic"
+  leans that way; and adjusting for the pH imbalance changes the ring-vs-pill
+  list from 97 to 191 genes, so the pooled contrast is not the only defensible
+  reading.
+- Alternative we did not choose: keep the three arms separate
+  (`03-three-arms-review.html` does exactly that as a check).
+
+## Q2 verdict
+
+- The gene *profile* differs only subtly between ring and the systemic
+  methods: PERMANOVA 1.7 % (p ≈ 0.04, borderline), three-arm test p = 0.10.
+- DESeq2 finds **165 genes at FDR < 0.05 (n = 26 vs 67)** — mostly small
+  shifts, possibly partly cell-mix rather than a true ring effect.
+- The effect, if real, is **modest** — no dramatic reprogramming of vaginal
+  tissue. Follow-up: cytokines, cell-mix markers, and an independent cohort
+  before calling it.
+
+# Question 3 — group by community type, then test the genes
+
+## Q3: two community types, one map (n = 93)
+
+```{r q3-ordination}
+#| label: q3-ordination
+#| fig-width: 9
+#| fig-height: 4.4
+#| fig-cap: "Gene-table PCoA (same distances as Q2) coloured by community type."
+ord_plot(ord_g, axes = 1:2, color = "community") +
+  stat_ellipse(aes(colour = community), type = "norm", linewidth = 0.4) +
+  labs(x = sprintf("Axis 1 (%s%% of variation)", sh_g[1]),
+       y = sprintf("Axis 2 (%s%%)", sh_g[2]), colour = "Community")
+```
+
+```{r q3-permanova}
+#| label: q3-permanova
+set.seed(1)
+q3 <- adonis2(dm_g ~ community + arm_group, data = meta_g,
+              permutations = 9999, by = "margin")
+q3_comm_r2 <- round(100 * q3$R2[1], 1)   # row 1 = community (margin test)
+q3_comm_p  <- round(q3$`Pr(>F)`[1], 4)
+```
+
+Community type was assigned from the **species** table (Lactobacillus
+≥ 50 % of species reads) and is tested on the **gene** table — the group is
+never defined from the table it is tested on.
+
+## Q3: does community type explain the genes better than the method?
+
+```{r q3-margin-table}
+#| label: q3-margin-table
+knitr::kable(
+  tibble(term = c("community type", "method (ring vs systemic)"),
+         n = c(93, 93),
+         `share of variation (%)` = round(100 * q3$R2[1:2], 1),
+         p = round(q3$`Pr(>F)`[1:2], 4)),
+  caption = "PERMANOVA on genes: community vs method, each adjusted for the other (9,999 permutations)"
+)
+```
+
+```{r q3-deseq2}
+#| label: q3-deseq2
+dds_c <- DESeq(DESeqDataSetFromMatrix(genes_f, md, design = ~ rnaseq_batch + community),
+               quiet = TRUE)
+res_c <- results(dds_c, contrast = c("community", "anaerobe", "lactobacillus"))
+sig_c <- sum(res_c$padj < 0.05, na.rm = TRUE)
+```
+
+```{r q3-verdict-table}
+#| label: q3-verdict-table
+knitr::kable(
+  tribble(
+    ~grouping, ~`PERMANOVA share (%)`, ~p, ~`DESeq2 genes at FDR < 0.05`,
+    "community type (48 vs 45)",  q3_comm_r2, q3_comm_p, sig_c,
+    "method, ring vs systemic (26 vs 67)",
+      q2_pool_r2, q2_pool_p, nrow(sig),
+  ),
+  caption = "The two groupings head to head on the same gene table"
+)
+```
+
+- **Answer: about a tie on the overall map, community ahead gene by gene.**
+  On total variation the two groupings explain about the same small share
+  (`r q3_comm_r2` % vs `r q2_pool_r2` %), and neither marginal p-value is
+  convincing. But gene by gene community type is the stronger signal:
+  **`r sig_c` genes at FDR < 0.05** vs 165 for ring vs systemic.
+- The two groupings are **not the same thing in disguise**: community
+  composition is balanced across the arms (chi-squared p = 0.50), so this is
+  a fair head-to-head, not a confounded one.
+- Why the mismatch between one map and many genes? A modest, consistent
+  shift spread over many genes can pass the per-gene FDR while moving the
+  overall profile only slightly.
+- Practical upshot for the group project: **adjust for community type** (or
+  stratify by it) before interpreting gene differences between methods —
+  and expect the method signal, if real, to be the smaller of the two.
+- One more reason to adjust: **vaginal pH tracks community type far more
+  strongly than it tracks the method** (p ≈ 1e-07 vs 0.02,
+  `06-q3-community-vs-method.html`), and the two gene lists barely overlap
+  (27 shared genes) — they are different signals, not one signal seen twice.
+- Full workings: `06-q3-community-vs-method.html`.
+
+# Wrapping up
+
+## The three answers in three lines
+
+1. **Community composition:** the three methods do **not** differ detectably
+   (PERMANOVA `r q1_r2` %, p = `r q1_p`, n = 93). The strong structure is
+   community type, not method.
+2. **Ring vs systemic genes:** a **small, suggestive** difference — 1.7 % of
+   variation (p = `r q2_pool_p`) and 165 genes at FDR < 0.05 (n = 26 vs 67), with
+   cell-mix and pH caveats. Pooling the pill with the injectable is
+   supported by the data (11 hits, p = 0.54, r = 0.71).
+3. **Community type vs method:** about a tie on the overall gene map
+   (`r q3_comm_r2` % vs `r q2_pool_r2` % of variation, both weak p-values),
+   but community type finds many more individual genes
+   (`r sig_c` vs 165). The groupings are independent (community is balanced
+   across arms, p = 0.50) — report both, and adjust for community when
+   reading method effects.
+
+**Standing caveat for all three:** people chose their method, the arms
+differ in vaginal pH, and the ring arm is the smallest (n = 26) — treat every
+p-value here as a lead, not a verdict.
+
+## Choices made
+
+- **Answered the workshop's three questions in this order** — composition,
+  ring-vs-systemic, community-vs-method — one headline figure each; the
+  alternative was to show every plot from the five analysis documents, which
+  would bury the answers.
+- **Community type defined from the species table and tested on the gene
+  table** (Lactobacillus ≥ 50 % of species reads, the notebook 02 rule); a
+  stricter cut-off (60 %) or a third intermediate group is the alternative.
+- **Species ordination/PERMANOVA on the unfiltered species table** with
+  CLR + Euclidean (half-min replacement), matching `01-qc.html`; filtering
+  rare species first is the alternative.
+- **Gene ordination and DESeq2 on genes with ≥ 10 reads in ≥ 10 samples**,
+  matching `02-ring-vs-systemic.qmd`; a stricter filter loses power, a laxer
+  one wastes tests.
+- **Raw counts into DESeq2** (it normalises itself); CPM or logged values
+  would be wrong.
+- **Reported both the three-arm and the pooled ring-vs-systemic PERMANOVA**
+  — the pooled one is the workshop's question but sits on the p = 0.05 line;
+  showing only it would overstate the evidence.
+- **Quoted the pairwise DESeq2 and pH-sensitivity numbers from
+  `03-three-arms-review.html` rather than recomputing them** here; rerunning
+  every fit in the deck is the alternative.
+- **Kept the deck as a summary layer over the five analysis documents**
+  (`01` QC, `02`+`03` Question 2, `05` Question 1, `06` Question 3) rather
+  than re-deriving every sensitivity check on a slide.
+- **Used 9,999 permutations and `by = "margin"`** for all PERMANOVA in this
+  deck, following the review document's correction of the sequential test.
+- **Did not adjust the main results for pH** (it may be on the causal path);
+  where pH matters we say so explicitly — the fully adjusted model is the
+  alternative.

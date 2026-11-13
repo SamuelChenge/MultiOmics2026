@@ -1,0 +1,304 @@
+---
+title: "Do the three methods differ in community composition? (Study B, Question 1)"
+format:
+  html:
+    embed-resources: true
+editor: source
+execute:
+  warning: false
+  message: false
+---
+
+> **What this document is.** The first Study B question: do pill, injectable
+> and vaginal ring users have differently *composed* vaginal microbiomes?
+> This is the microbiome half of the week — the same kind of analysis as
+> Tuesday's ordination module, but now testing the three arms against each
+> other. We start with a map (ordination), then a formal test of the map
+> (PERMANOVA), then ask whether any individual species differ
+> (DESeq2 on raw counts). Full data QC lives in `01-qc.html`; this document
+> repeats only the checks this analysis depends on.
+
+```{r setup}
+#| label: setup
+#| message: false
+library(tidyverse)
+library(here)
+library(DESeq2)
+library(microViz)
+library(phyloseq)
+library(vegan)
+library(patchwork)   # lets p_arm + p_com put two plots side by side
+
+source(here("R/count_tables.R"))
+
+d  <- read_counts("group_b")
+sp <- d$species         # 220 species x 93 samples, RAW counts
+md <- d$metadata        # one row per sample, same order as the columns
+
+# Community type, same rule as 01-qc and notebook 02: Lactobacillus genus
+# >= half of the sample's species reads. Used only to label the right-hand
+# ordination panel — the tests below use arm, from the metadata.
+lacto_taxa <- d$taxonomy |> filter(Genus == "Lactobacillus") |> pull(taxon)
+lacto_frac <- colSums(sp[lacto_taxa, , drop = FALSE]) / colSums(sp)
+md$community <- ifelse(lacto_frac >= 0.5, "lactobacillus", "anaerobe")
+```
+
+# 1. QC for this analysis
+
+```{r qc-checks}
+#| label: qc-checks
+stopifnot(identical(colnames(sp), md$sample_id))  # order check: a silent
+                                                  # mismatch would ruin everything
+knitr::kable(table(Arm = md$arm, `RNA-seq batch` = md$rnaseq_batch),
+             caption = "Samples per arm and sequencing batch")
+```
+
+- **Order check passed:** species-table columns and metadata rows are in the
+  same `sample_id` order.
+- **Sample sizes:** 28 pill, 39 injectable, 26 ring (93 total). The ring arm
+  is the smallest, so ring comparisons carry the least power.
+- **Carried flags from `01-qc.html`:** nine samples sit below half the median
+  microbiome library size (lowest `B006` at 5,247 reads); `B030` is 99.8 %
+  *Lactobacillus iners* (real biology, but it can pull ordinations); `B018`
+  and `B029` lack cytokines (irrelevant here). None is dropped — the
+  ordination in section 2 is the check that no flagged sample sits wildly
+  alone.
+
+# 2. Ordination: do the three arms separate?
+
+We transform to CLR (centred log-ratio — each species compared against the
+geometric mean of the sample, the standard way to handle compositional data)
+and draw a Euclidean PCoA. Points are coloured by arm; the right panel
+reminds us what the *big* structure in this table actually is: community
+type, not method.
+
+```{r ordination}
+#| label: ordination
+#| fig-width: 10
+#| fig-height: 4.5
+#| fig-cap: "Species-table PCoA (CLR + Euclidean). Left: coloured by method. Right: coloured by community type — the structure that actually separates."
+ps <- as_counts(dataset = "group_b", table = "microbiome", data = d)
+sd <- as(sample_data(ps), "data.frame")
+idx <- match(sd$sample_id, md$sample_id)
+sd$arm       <- md$arm[idx]
+sd$community <- md$community[idx]
+sample_data(ps) <- sample_data(sd)
+
+ord <- ps |>
+  tax_transform("clr", zero_replace = "halfmin") |>
+  dist_calc("euclidean") |>
+  ord_calc("PCoA")
+
+eig <- attr(ord, "ord")$CA$eig
+sh  <- round(100 * eig / sum(eig), 1)
+
+p_arm <- ord_plot(ord, axes = 1:2, color = "arm") +
+  stat_ellipse(aes(colour = arm), type = "norm", linewidth = 0.4) +
+  labs(title = "By method", x = sprintf("Axis 1 (%s%%)", sh[1]),
+       y = sprintf("Axis 2 (%s%%)", sh[2]), colour = "Arm")
+p_com <- ord_plot(ord, axes = 1:2, color = "community") +
+  stat_ellipse(aes(colour = community), type = "norm", linewidth = 0.4) +
+  labs(title = "By community type", x = sprintf("Axis 1 (%s%%)", sh[1]),
+       y = NULL, colour = "Community")
+p_arm + p_com
+```
+
+No sample sits in obvious isolation, so none of the flagged low-depth
+samples needs dropping.
+
+# 3. PERMANOVA: a formal test of the map
+
+PERMANOVA asks whether samples from different arms are further apart, on
+average, than samples from the same arm, and gets a p-value by shuffling the
+arm labels 9,999 times. R² is the share of all the between-sample variation
+the arm explains. Batch is included in the same model with `by = "margin"`
+so each term gets its own adjusted test
+([Anderson 2001](https://doi.org/10.1111/j.1442-9993.2001.01070.pp.x)).
+
+```{r permanova}
+#| label: permanova
+dm <- attr(ord, "dist")
+meta_p <- data.frame(sample_data(ps))[rownames(as.matrix(dm)), ]
+meta_p$arm <- factor(meta_p$arm, levels = c("ring", "pill", "injectable"))
+set.seed(1)
+main <- adonis2(dm ~ arm + rnaseq_batch, data = meta_p,
+                permutations = 9999, by = "margin")
+disp <- permutest(betadisper(dm, meta_p$arm), permutations = 9999)
+
+pair <- function(a, b) {
+  keep <- meta_p$arm %in% c(a, b)
+  out  <- adonis2(as.dist(as.matrix(dm)[keep, keep]) ~ arm,
+                  data = droplevels(meta_p[keep, ]), permutations = 9999)
+  tibble(comparison = paste(a, "vs", b),
+         n = sum(keep),
+         `share of variation (%)` = round(100 * out$R2[1], 1),
+         `p (raw)` = out$`Pr(>F)`[1])
+}
+pairs <- bind_rows(pair("ring", "pill"),
+                   pair("ring", "injectable"),
+                   pair("pill", "injectable")) |>
+  mutate(`p (adjusted, BH)` = p.adjust(`p (raw)`, "BH"))
+
+q1_r2  <- round(100 * main$R2[1], 1)   # row 1 = arm (margin test)
+q1_p   <- round(main$`Pr(>F)`[1], 3)
+q1_rp  <- round(pairs$`p (raw)`[2], 3)
+q1_ra  <- round(pairs$`p (adjusted, BH)`[2], 3)
+q1_sp2 <- pairs$`share of variation (%)`[2]
+q1_dp  <- round(disp$tab$`Pr(>F)`[1], 2)
+```
+
+```{r permanova-table}
+#| label: permanova-table
+knitr::kable(
+  tibble(
+    test = c("arm (adjusted for batch)", "batch (adjusted for arm)",
+             "spread check (betadisper)"),
+    n = c(93, 93, 93),
+    `share of variation (%)` = round(100 * c(main$R2[1], main$R2[2], NA), 1),
+    p = round(c(main$`Pr(>F)`[1], main$`Pr(>F)`[2],
+                disp$tab$`Pr(>F)`[1]), 3)
+  ),
+  caption = "PERMANOVA on species (CLR + Euclidean, 9,999 permutations)"
+)
+knitr::kable(pairs |>
+               mutate(`p (raw)` = round(`p (raw)`, 3),
+                      `p (adjusted, BH)` = round(`p (adjusted, BH)`, 3)),
+             caption = "Each pair of arms separately (9,999 permutations)")
+```
+
+- **Main test:** the three arms explain `r q1_r2` % of
+  the species-level variation, p = `r q1_p`
+  (n = 93). **Not significant.**
+- **Pairwise:** no pair survives adjustment; the largest raw effect is ring
+  vs injectable at `r q1_sp2` %
+  (raw p = `r q1_rp`, adjusted
+  `r q1_ra`).
+- **Spread check:** the arms do not differ in how *scattered* they are
+  (p = `r q1_dp`), so PERMANOVA is not being fooled
+  by a difference in spread.
+
+> **Sanity check.** Change `set.seed(1)` to another number and re-render —
+> the R² must stay exactly `r q1_r2` % and the p-value
+> should stay near `r q1_p`. You can also verify the
+> R² by hand: it is the between-arm sum of squares divided by the total,
+> both printed by `adonis2`.
+
+# 4. Differential abundance: do any individual species differ?
+
+The ordination tests the whole profile at once; small shifts in a few
+species could still hide inside a non-significant map. DESeq2 tests each
+species separately. It takes **raw counts** (it does its own
+normalisation — never CPM or logged values) and, like the ordination, gets
+batch as a covariate. We first ask "does *any* arm differ?" with a
+likelihood-ratio test, then look at each pair.
+
+```{r deseq}
+#| label: deseq
+sp_f <- sp[rowSums(sp >= 10) >= 10, ]    # same filter rule as the gene analyses
+dds <- DESeq(DESeqDataSetFromMatrix(sp_f, md, design = ~ rnaseq_batch + arm),
+             quiet = TRUE)
+lrt <- as.data.frame(results(DESeq(DESeqDataSetFromMatrix(sp_f, md, ~ rnaseq_batch + arm),
+                                   test = "LRT", reduced = ~ rnaseq_batch,
+                                   quiet = TRUE))) |>
+  rownames_to_column("taxon") |>
+  left_join(d$taxonomy |> select(taxon, Genus, species), by = "taxon") |>
+  mutate(padj = replace_na(padj, 1))
+
+pair_res <- function(a, b) {
+  as.data.frame(results(dds, contrast = c("arm", a, b))) |>
+    rownames_to_column("taxon") |>
+    left_join(d$taxonomy |> select(taxon, Genus, species), by = "taxon") |>
+    mutate(padj = replace_na(padj, 1))
+}
+ring_pill <- pair_res("ring", "pill")
+ring_inj  <- pair_res("ring", "injectable")
+pill_inj  <- pair_res("pill", "injectable")
+```
+
+```{r deseq-table}
+#| label: deseq-table
+expected <- function(r) round(0.05 * sum(!is.na(r$pvalue)))
+knitr::kable(
+  tibble(
+    comparison = c("any arm differs (LRT)", "ring vs pill", "ring vs injectable",
+                   "pill vs injectable"),
+    samples = c("93", "26 vs 28", "26 vs 39", "28 vs 39"),
+    `species at FDR < 0.05` = c(sum(lrt$padj < 0.05),
+                                sum(ring_pill$padj < 0.05),
+                                sum(ring_inj$padj < 0.05),
+                                sum(pill_inj$padj < 0.05)),
+    `raw p < 0.05` = c(sum(lrt$pvalue < 0.05, na.rm = TRUE),
+                       sum(ring_pill$pvalue < 0.05, na.rm = TRUE),
+                       sum(ring_inj$pvalue < 0.05, na.rm = TRUE),
+                       sum(pill_inj$pvalue < 0.05, na.rm = TRUE)),
+    `expected by chance` = c(expected(lrt), expected(ring_pill),
+                             expected(ring_inj), expected(pill_inj))
+  ),
+  caption = "DESeq2 on species (raw counts, batch-adjusted)"
+)
+```
+
+```{r deseq-top}
+#| label: deseq-top
+top <- lrt |> filter(padj < 0.05) |>
+  slice_min(padj, n = 10) |>
+  transmute(species = str_c(Genus, " ", species),
+            FDR = signif(padj, 2))
+knitr::kable(top, caption = "Smallest-FDR species in the any-arm test")
+```
+
+- The hit counts sit **at or below what chance alone would give**
+  (220 species tested → about 11 expected at raw p < 0.05). Whatever small
+  shifts exist are not concentrated in particular species.
+- One caveat that always applies here: these tables are
+  **compositional** — "higher relative abundance" is not the same claim as
+  "there was more of it".
+
+> **Sanity check.** Pick the top species in the table, take its raw counts
+> from `02_microbiome_counts.csv`, and compare the ring-arm median with the
+> pill-arm median by eye — a striking visual gap should match a small FDR,
+> and here you should see mostly overlapping clouds, consistent with the
+> non-significant tests.
+
+# 5. Verdict
+
+- **The three methods do not differ detectably in community composition.**
+  Ordination: no visible separation (n = 93). PERMANOVA: 2.8 %, p = 0.17;
+  no pairwise comparison survives adjustment. DESeq2: hit counts at
+  chance level, no species stands out.
+- The strong structure in this table is **community type**
+  (48 lactobacillus-dominant vs 45 anaerobe samples, axis 1 = 36 %) — and
+  community type is *balanced across the arms*, which is why the method
+  comparison is not chasing it. Question 3
+  (`06-q3-community-vs-method.html`) follows that split into the genes.
+- With 26–39 people per arm, a real but modest effect could still hide
+  here; absence of evidence, not evidence of absence.
+
+## Choices made
+
+- **CLR + Euclidean** for the ordination and PERMANOVA, because species
+  profiles are compositional; Bray-Curtis on raw counts and Jaccard on
+  presence/absence were the alternatives and give the same picture (see
+  `01-qc.html`, section 9).
+- **Species table left unfiltered** for the ordination, matching
+  `01-qc.html`; the DESeq2 abundance test filters at ≥ 10 reads in ≥ 10
+  samples, the same rule as the gene analyses — a laxer rule spends tests on
+  near-empty species, a stricter one loses power.
+- **PERMANOVA with batch in one model, `by = "margin"`, 9,999 permutations**
+  — the correction from `03-three-arms-review.html`; the default sequential
+  test gives the first term credit for anything it shares with the second.
+  The batch label is the RNA-seq run, the only batch information the
+  metadata carries; if the microbiome was sequenced in different runs, that
+  variable is not available to adjust for.
+- **Likelihood-ratio test** for "does any arm differ?" (2 df) before any
+  pairwise look; jumping straight to pairwise tests is the alternative and
+  invites cherry-picking.
+- **BH adjustment** for the pairwise PERMANOVA p-values; Bonferroni is the
+  stricter alternative.
+- **Kept all 93 samples**, including the nine low-depth ones and the `B030`
+  near-monoculture; dropping them is the alternative but none drives the
+  (null) result, and CLR with half-min replacement handles the zeros.
+- **Did not adjust for vaginal pH** here — pH differs by arm (p = 0.02) and
+  could be on the causal path from hormones to microbiome; an adjusted model
+  is the alternative and belongs in a follow-up rather than a null-result
+  document.
